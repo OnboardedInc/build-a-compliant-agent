@@ -1,0 +1,33 @@
+# Copy to .dev.vars for local development. When deployed, set these with `wrangler secret put`.
+# .dev.vars is git-ignored. Never commit real values.
+
+# Base URL of Onboarded's public API. Optional: this is the default.
+ONBOARDED_API_BASE=https://app.onboarded.com/api/v1
+# Public API key of the one Onboarded account every visitor's agent runs against.
+ONBOARDED_API_KEY=your-onboarded-api-key
+# The employer in that account that placements are made for.
+ONBOARDED_EMPLOYER_ID=your-onboarded-employer-id
+# The job in that account that placements use. A job Onboarded does not know is retried without it.
+ONBOARDED_JOB_ID=your-onboarded-job-id
+
+# Vapi private key: voice calls, the note-taker, and writing the two screening questions.
+VAPI_PRIVATE_KEY=your-vapi-private-key
+# Vapi org id. Optional: read from Vapi on first use and stored in the settings table when blank.
+VAPI_ORG_ID=
+
+# brand.dev key for logo and colours. Optional: without it the company's home page is read instead.
+BRAND_DEV_API_KEY=
+
+# Bearer token for /api/admin/*. The tunnel script uses it to save its public address. Use a long random string.
+ADMIN_TOKEN=change-me-to-a-long-random-string
+
+# Local only: show the one-time email link on the "Confirm your email" page. Never set it on a deployed Worker.
+DEV_SHOW_VERIFY_LINK=1
+
+# Show the employer's I-9 Section 2 link in the recruiter panel. Off unless "1": with it on,
+# every visitor gets a link into the shared Onboarded account's employer side.
+# SHOW_EMPLOYER_LINK=1
+
+# EMAIL_FROM and SITE_NAME are plain vars in wrangler.jsonc. A line here overrides them locally.
+# EMAIL_FROM=hello@example.com
+# SITE_NAME=example.com

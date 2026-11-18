@@ -1,0 +1,42 @@
+{
+	"name": "build-a-compliant-agent",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "concurrently -n worker,app \"npm run dev:worker\" \"npm run dev:app\"",
+		"dev:worker": "wrangler dev --port 8788",
+		"dev:app": "vite",
+		"dev:voice": "npm run build && concurrently -n worker,app,voice \"npm run dev:worker\" \"npm run dev:app\" \"node scripts/voice-tunnel.mjs\"",
+		"build": "vite build",
+		"typecheck": "tsc --noEmit",
+		"migrate:local": "for f in ./migrations/*.sql; do wrangler d1 execute bca-db --local --file=$f; done",
+		"deploy": "npm run build && wrangler deploy --minify",
+		"cf-typegen": "wrangler types --env-interface CloudflareBindings",
+		"test:ui": "node tests/ui-walk.mjs",
+		"test:call": "node tests/spoken-call.mjs"
+	},
+	"dependencies": {
+		"@vapi-ai/web": "^3.1.0",
+		"clsx": "^2.1.1",
+		"hono": "^4.12.7",
+		"lucide-react": "^0.577.0",
+		"nanoid": "^5.1.6",
+		"react": "^19.2.4",
+		"react-dom": "^19.2.4",
+		"react-router-dom": "^7.13.1",
+		"tailwind-merge": "^3.5.0"
+	},
+	"devDependencies": {
+		"@tailwindcss/vite": "^4.2.1",
+		"@types/node": "^25.5.0",
+		"@types/react": "^19.2.14",
+		"@types/react-dom": "^19.2.3",
+		"@vitejs/plugin-react": "^6.0.1",
+		"concurrently": "^9.2.1",
+		"playwright": "1.64.1",
+		"tailwindcss": "^4.2.1",
+		"typescript": "^5.9.3",
+		"vite": "^8.0.0",
+		"wrangler": "^4.73.0"
+	}
+}

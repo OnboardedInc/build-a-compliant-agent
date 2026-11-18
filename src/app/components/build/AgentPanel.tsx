@@ -1,0 +1,9 @@
+import type { Brand, BuilderView } from "@shared/builder";
+import { DEFAULT_BRAND } from "@shared/builder";
+import { PhonePreview } from "./PhonePreview";
+import { PartCard } from "./PartCard";
+export function AgentPanel({ builder, brand = builder?.brand ?? DEFAULT_BRAND, company = builder?.company ?? "", website = builder?.website ?? "", name = builder?.agentName, face = builder?.agentFace, step }: { builder?: BuilderView | null; brand?: Brand; company?: string; website?: string; name?: string | null; face?: number | null; step: number }) {
+  const questions = builder?.questions.length === 2;
+  const identity = !!name?.trim() && !!face;
+  return <aside className="agent-panel" aria-label="Your agent so far"><div className="panel-eyebrow" aria-live="polite"><span>Your agent</span><span>{Number(!!website) + Number(questions) + Number(identity)} of 3 parts ready</span></div><div className="agent-panel-body"><PhonePreview brand={brand} company={company} name={name} face={face} /><ul className="part-list"><PartCard title="Brand" state={website ? "done" : "now"}>{website ? `Logo and two colours from ${website}. The darker is the ground, the lighter the accent.` : "Your logo and colours, found from your website."}</PartCard><PartCard title="Two screening questions" state={questions ? "done" : step === 3 ? "now" : "todo"}>{questions ? `Scored as ${builder.questions.map(q => q.topic).join(" and ")}.` : "You describe what matters, we write the questions."}</PartCard><PartCard title="Name and face" state={step === 4 ? "now" : identity ? "done" : "todo"}>{identity ? `${name}, face ${face}. The preview follows what you pick.` : "Up to 8 characters, and one of 10 faces."}</PartCard><PartCard title="Compliance, by Onboarded" compliance state="done">Included in every agent: the forms the job and state require, and each form's deadline.</PartCard></ul></div></aside>;
+}

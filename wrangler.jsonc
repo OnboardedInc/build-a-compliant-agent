@@ -1,0 +1,31 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "build-a-compliant-agent",
+	"main": "src/server/index.ts",
+	"compatibility_date": "2026-03-12",
+	"compatibility_flags": ["nodejs_compat"],
+	"assets": {
+		"binding": "ASSETS",
+		"directory": "./public",
+		"not_found_handling": "single-page-application"
+	},
+	"observability": {
+		"enabled": true
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "bca-db",
+			// Replace with the id from `wrangler d1 create bca-db` before the first deploy.
+			"database_id": "00000000-0000-0000-0000-000000000000"
+		}
+	],
+	// The one-time email link is sent through Cloudflare Email Sending. `wrangler dev`
+	// simulates the send locally; a deployed Worker needs the sender's domain onboarded
+	// (`wrangler email sending enable buildacompliantagent.com`).
+	"send_email": [{ "name": "EMAIL" }],
+	"vars": {
+		"EMAIL_FROM": "hello@buildacompliantagent.com",
+		"SITE_NAME": "buildacompliantagent.com"
+	}
+}
