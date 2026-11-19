@@ -95,7 +95,7 @@ async function websiteBrand(domain: string): Promise<Brand> {
   const sheets = links.filter((a) => /\bstylesheet\b/i.test(a.rel || "")).map((a) => webUrl(a.href, url)).filter((h): h is string => !!h && h.startsWith("https://") && own(h)).slice(0, 2);
   await Promise.all(sheets.map(async (href) => {
     try {
-      const css = await fetch(href, { signal: AbortSignal.timeout(4000), redirect: "error", headers: { Accept: "text/css", ...AGENT } });
+      const css = await fetch(href, { signal: AbortSignal.timeout(4000), redirect: "manual", headers: { Accept: "text/css", ...AGENT } });
       if (css.ok && /\btext\/css\b/i.test(css.headers.get("content-type") || "")) countColours(await readText(css, 400_000), frequency);
       else await css.body?.cancel();
     } catch { /* A stylesheet that cannot be read only means fewer colours to choose from. */ }
@@ -105,9 +105,11 @@ async function websiteBrand(domain: string): Promise<Brand> {
   const picked = pickBrandColours(colours);
   return { ...(picked || { primary: DEFAULT_BRAND.primary, secondary: DEFAULT_BRAND.secondary }), logoUrl: webUrl(logo?.href, url) || `${new URL(url).origin}/favicon.ico`, source: "website" };
 }
+// Cloudflare Workers accept only "follow" and "manual" for `redirect`: "error" throws there (it works in Node),
+// which made every brand.dev call and every stylesheet read fail silently. "manual" gives a 3xx, which is not ok.
 async function retrieveBrand(domain: string, env: Pick<Bindings, "BRAND_DEV_API_KEY">): Promise<Brand> {
   if (env.BRAND_DEV_API_KEY?.trim()) try {
-    const response = await fetch(`https://api.brand.dev/v1/brand/retrieve?domain=${encodeURIComponent(domain)}`, { headers: { Authorization: `Bearer ${env.BRAND_DEV_API_KEY.trim()}` }, signal: AbortSignal.timeout(5000), redirect: "error" });
+    const response = await fetch(`https://api.brand.dev/v1/brand/retrieve?domain=${encodeURIComponent(domain)}`, { headers: { Authorization: `Bearer ${env.BRAND_DEV_API_KEY.trim()}` }, signal: AbortSignal.timeout(5000), redirect: "manual" });
     if (response.ok) {
       const body = await response.json() as { brand?: { colors?: Array<{ hex?: string }>; logos?: Array<{ type?: string; url?: string; width?: number; height?: number; resolution?: { width?: number; height?: number } }> } };
       const colours = pickBrandColours((body.brand?.colors || []).flatMap((c) => typeof c.hex === "string" ? [c.hex.startsWith("#") ? c.hex : `#${c.hex}`] : []));
@@ -125,7 +127,10 @@ export async function brandFor(input: string, env: Pick<Bindings, "DB" | "BRAND_
   try {
     const cached = await env.DB.prepare("SELECT value FROM settings WHERE key = ?").bind(key).first<{ value: string | null }>();
     const entry = cached?.value ? JSON.parse(cached.value) as { at: number; brand: Brand } : null;
-    if (entry && Date.now() - entry.at < 86_400_000) return entry.brand;
+    // A result found by reading the company's own page is second best. Once a branding key is set,
+    // such an entry is looked up again instead of being served for a day.
+    const secondBest = !!env.BRAND_DEV_API_KEY?.trim() && entry?.brand.source !== "brand.dev";
+    if (entry && !secondBest && Date.now() - entry.at < 86_400_000) return entry.brand;
   } catch { /* A broken/missing cache should never break the preview. */ }
   const brand = await retrieveBrand(domain, env);
   try { await env.DB.prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(key, JSON.stringify({ at: Date.now(), brand })).run(); }
