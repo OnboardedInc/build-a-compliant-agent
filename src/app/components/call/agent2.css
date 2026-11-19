@@ -286,7 +286,12 @@
 
 /* Wide screens: the API feed gets more room; very large monitors scale the whole screen. */
 @media (min-width: 1600px) { .a2-watch { grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; padding: 24px 32px 28px; } .call-layout { grid-template-columns: 460px minmax(0, 1fr); } }
-@media (min-width: 2200px) { .call-layout { zoom: 1.25; } }
+/* Very large monitors: the call screen is the same framed stage as the building steps (see index.css). */
+@media (min-width: 1800px) {
+  .call-layout { width: 100%; max-width: var(--stage-w, 1680px); margin-inline: auto; min-height: var(--stage-h); height: var(--stage-h); border-radius: 28px; overflow: hidden; box-shadow: 0 0 0 1px rgb(20 25 61 / 7%), 0 2px 6px rgb(20 25 61 / 5%), 0 36px 110px -24px rgb(20 25 61 / 30%); }
+  .call-layout .a2-watch { height: var(--stage-h); }
+  .call-left .a2-phone-space { height: min(800px, max(560px, calc(var(--stage-h) - 156px))) !important; }
+}
 @media (max-width: 1099px) { .a2-watch { grid-template-columns: minmax(0, 1fr); height: auto; } .a2-watch-left { min-height: 998px; } .a2-api { min-height: 240px; max-height: 640px; } }
 /* Two columns on a tablet: the phone stays in view while the recruiter's side scrolls. */
 @media (min-width: 760px) and (max-width: 1099px) {

@@ -233,10 +233,24 @@ h1 { font-size: clamp(28px, .8vw + 22px, 40px); line-height: 1.12; font-weight: 
   .phone-preview { --phone-w: 280px; }
   .part-list { max-width: 400px; }
 }
-/* Very large monitors: scale the whole composition, so it is not a small island. */
-@media (min-width: 2200px) {
-  :root { --z: 1.25; }
-  .build-layout, .built-page, .status-page { zoom: 1.25; }
+/* Very large monitors: the page becomes one framed stage with a max width, floating in the middle of a quiet background. */
+@media (min-width: 1800px) {
+  :root { --stage-w: 1680px; --stage-h: min(calc(100dvh - 72px), 1080px); }
+  body {
+    background:
+      radial-gradient(1100px 760px at 12% -8%, rgb(79 91 213 / 13%), transparent 62%),
+      radial-gradient(980px 700px at 96% 108%, rgb(135 234 92 / 16%), transparent 58%),
+      linear-gradient(180deg, #EEF0F7 0%, #E7EAF3 100%);
+    background-attachment: fixed;
+  }
+  #root { min-height: 100dvh; display: grid; align-items: center; padding: 36px 40px; box-sizing: border-box; }
+  .build-layout, .built-page {
+    width: 100%; max-width: var(--stage-w); margin-inline: auto; min-height: var(--stage-h);
+    border-radius: 28px; overflow: hidden;
+    box-shadow: 0 0 0 1px rgb(20 25 61 / 7%), 0 2px 6px rgb(20 25 61 / 5%), 0 36px 110px -24px rgb(20 25 61 / 30%);
+  }
+  .build-layout { background: #FFFFFF; }
+  .build-column { min-height: min(calc(var(--stage-h) - 64px), 920px); }
 }
 /* Stacked: the form first, then the panel. */
 @media (max-width: 999px) {
