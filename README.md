@@ -52,6 +52,9 @@ Set in `.dev.vars` locally and as wrangler secrets when deployed. `.dev.vars.exa
 | `ADMIN_TOKEN` | yes | Bearer token for `/api/admin/*` |
 | `DEV_SHOW_VERIFY_LINK` | local only | `1` shows the one-time link on the page. Never set it on a deployed Worker. |
 | `SHOW_EMPLOYER_LINK` | no | `1` shows the employer's I-9 Section 2 link in the recruiter panel. Off by default, because the link opens the employer side of the shared Onboarded account to every visitor. |
+| `ACCESS_GOOGLE_DOMAIN` | no | Turns the sign-in wall on: only Google accounts at this domain can use the site. Unset locally. |
+| `GOOGLE_CLIENT_ID` | with the wall | The Google OAuth web client the sign-in button uses |
+| `SESSION_SECRET` | with the wall | Signs the session cookie. At least 32 random characters. |
 
 `EMAIL_FROM` and `SITE_NAME` are plain vars in `wrangler.jsonc`. The `EMAIL` binding is Cloudflare Email Sending.
 
@@ -65,13 +68,24 @@ The agent reads everything about work sites and forms from the Onboarded account
 - **Forms with these custom attributes**: `summary` and `applies_when` (what the form is and when it applies), `bring` (what to have ready), `short_name`, and the deadline rules `employee_due_days_from_start`, `employee_due_citation`, `employer_due_business_days_from_start`, `employer_due_citation`. A `source` attribute (`library`, `custom` or `integration`) is optional.
 - **The employer and job** named by `ONBOARDED_EMPLOYER_ID` and `ONBOARDED_JOB_ID`.
 
+## Sign-in wall (internal preview)
+
+**With `ACCESS_GOOGLE_DOMAIN` set, only Google accounts at that domain can use the site.** Unset, the wall is off and nothing changes, which is how local development and the tests run.
+
+- **The page shows "Sign in with Google".** Google's button gives the page an ID token; `POST /api/auth/google` checks it (Google's signature, issuer, audience `GOOGLE_CLIENT_ID`, expiry, a verified email, and both the `hd` claim and the email's domain equal to `ACCESS_GOOGLE_DOMAIN`) and sets a signed session cookie for 12 hours.
+- **Every `/api` route answers 401 without the cookie**, except `/api/health`, `/api/auth/*` and the voice provider's webhook `/api/vapi/*`, which keeps its own secret check. Admin routes need the cookie and `ADMIN_TOKEN`.
+- **It fails closed.** With the domain set and `SESSION_SECRET` missing, every protected route answers 503. With `GOOGLE_CLIENT_ID` missing, the page says sign-in is not set up yet and nobody can sign in.
+- **No email link.** The signed-in address is the builder's work email and counts as confirmed. Any other address is refused.
+
+To finish it, create a Google OAuth client of type "Web application" in Google Cloud, add the site's address (for example `https://<worker>.<subdomain>.workers.dev`) as an authorized JavaScript origin, and set its client id with `npx wrangler secret put GOOGLE_CLIENT_ID -c wrangler.production.jsonc`.
+
 ## Deploy
 
-1. `wrangler d1 create bca-db`, and put the id in `wrangler.jsonc` (it ships with a zero placeholder).
-2. `wrangler d1 execute bca-db --remote --file=migrations/0001_init.sql`
-3. `wrangler secret put` for each required variable above. Do not set `DEV_SHOW_VERIFY_LINK`.
-4. `wrangler email sending enable <your domain>`, so the one-time link can be sent from `EMAIL_FROM`.
-5. `npm run deploy`, then add the custom domain to the Worker.
+1. `npx wrangler d1 create bca-db`. Leave the zero placeholder id in `wrangler.jsonc`: `scripts/production-config.mjs` looks the real id up by name and writes `wrangler.production.jsonc`, which is git-ignored.
+2. `npm run migrate:remote` applies `migrations/*.sql` to that database.
+3. Set each required variable above as a secret: `npx wrangler secret put <NAME> -c wrangler.production.jsonc`. Do not set `DEV_SHOW_VERIFY_LINK`.
+4. Without the wall, `wrangler email sending enable <your domain>` so the one-time link can be sent from `EMAIL_FROM`. With the wall no link is sent.
+5. `npm run deploy` (writes the production config, builds, deploys). Add a custom domain to the Worker if you have one.
 
 A deployed Worker needs no tunnel: Vapi posts to the Worker's own address.
 

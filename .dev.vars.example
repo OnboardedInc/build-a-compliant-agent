@@ -28,6 +28,16 @@ DEV_SHOW_VERIFY_LINK=1
 # every visitor gets a link into the shared Onboarded account's employer side.
 # SHOW_EMPLOYER_LINK=1
 
+# Sign-in wall ("internal preview"). Leave ACCESS_GOOGLE_DOMAIN unset locally: the wall is off and
+# the site works as described in README.md. Set it on a deployed Worker (as wrangler secrets) to
+# allow only Google accounts at that domain. With the domain set and either of the other two
+# missing, nobody can sign in and the page says sign-in is not set up yet.
+# ACCESS_GOOGLE_DOMAIN=example.com
+# Google OAuth web client id (a public value). Its authorized JavaScript origin is the site's address.
+# GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+# Signs the session cookie. At least 32 random characters.
+# SESSION_SECRET=change-me-to-a-long-random-string
+
 # EMAIL_FROM and SITE_NAME are plain vars in wrangler.jsonc. A line here overrides them locally.
 # EMAIL_FROM=hello@example.com
 # SITE_NAME=example.com

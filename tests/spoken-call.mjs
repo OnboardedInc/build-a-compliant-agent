@@ -7,6 +7,9 @@
 //   npm run test:call        (needs `npm run dev:voice` running in this repository; macOS only: it uses `say` and `afconvert`)
 //   LABEL=<name for the saved screenshots and call>  WEBSITE=<domain to pull a brand from>
 //   TEST_EMAIL_DOMAIN=<domain for the made-up work email>  API=<worker address>  APP=<app address>
+//   BASE_URL=<deployed site> sets app and Worker; otherwise APP and API retain their local defaults.
+//   Wall on: .prod.vars needs SESSION_SECRET; TEST_ACCESS_EMAIL defaults to qa@onboarded.com.
+//   The wall skips the one-time email link; the Vapi key is still read from .dev.vars.
 import { chromium } from "playwright";
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -15,10 +18,16 @@ import { micArgs, micScript } from "./lib/fake-mic.mjs";
 import { fillPage, submitPage } from "./lib/forms.mjs";
 import { CHOICES } from "./lib/choices.mjs";
 import { ASSETS, devVar, outDir } from "./lib/paths.mjs";
+import { accessCookie } from "./lib/access-cookie.mjs";
 
-const API_BASE = process.env.API ?? "http://localhost:8788";
-const APP = process.env.APP ?? "http://localhost:5176";
+const API_BASE = (process.env.BASE_URL ?? process.env.API ?? "http://localhost:8788").replace(/\/$/, "");
+const APP = (process.env.BASE_URL ?? process.env.APP ?? "http://localhost:5176").replace(/\/$/, "");
 const API = `${API_BASE}/api`;
+const accessResponse = await fetch(`${API}/auth/me`);
+if (!accessResponse.ok) throw new Error(`Access check failed (${accessResponse.status}).`);
+const access = await accessResponse.json();
+const accessEmail = process.env.TEST_ACCESS_EMAIL ?? "qa@onboarded.com";
+const cookie = access.wall ? await accessCookie({ baseUrl: APP, email: accessEmail }) : null;
 const LABEL = process.env.LABEL ?? "call";
 const WEBSITE = process.env.WEBSITE ?? "cloudflare.com";
 // A reserved domain by default, so no mail can reach a real inbox.
@@ -27,7 +36,7 @@ const SHOTS = outDir("call");
 const AUDIO = outDir("audio");
 // Read before the call, so a missing key fails the run before anything is billed.
 const VAPI_KEY = devVar("VAPI_PRIVATE_KEY");
-let headers = { "Content-Type": "application/json" };
+let headers = { "Content-Type": "application/json", ...(cookie ? { Cookie: cookie.header } : {}) };
 const api = async (method, path, body) => {
   const res = await fetch(`${API}${path}`, { method, headers, ...(body ? { body: JSON.stringify(body) } : {}) });
   const json = await res.json().catch(() => ({}));
@@ -76,31 +85,47 @@ const answerTo = (said) => {
 
 // -- Build an agent, the way the four steps do --------------------------------------------------
 const DESCRIPTION = "We staff banquet servers and bartenders for hotels. I care most about real serving experience, and whether evenings and weekends work for them, because that is most of our shifts.";
-const started0 = await api("POST", "/builders", { email: `maya.qa+${Date.now()}@${EMAIL_DOMAIN}`, company: "Larkspur Staffing", website: WEBSITE });
+const started0 = await api("POST", "/builders", { email: access.wall ? accessEmail : `maya.qa+${Date.now()}@${EMAIL_DOMAIN}`, company: "Larkspur Staffing", website: WEBSITE });
 headers = { ...headers, Authorization: `Bearer ${started0.token}` };
 console.log("brand", JSON.stringify(started0.builder.brand));
 const me0 = await api("GET", "/me");
-if (!me0.devVerifyUrl) throw new Error("No devVerifyUrl: set DEV_SHOW_VERIFY_LINK=1 in .dev.vars");
-const blocked = await fetch(`${API}/me/questions`, { method: "POST", headers, body: JSON.stringify({ description: DESCRIPTION }) });
-await api("POST", "/verify", { token: new URL(me0.devVerifyUrl).searchParams.get("token") });
+let blockedStatus = null;
+if (!access.wall) {
+  if (!me0.devVerifyUrl) throw new Error("No devVerifyUrl: set DEV_SHOW_VERIFY_LINK=1 in .dev.vars");
+  const blocked = await fetch(`${API}/me/questions`, { method: "POST", headers, body: JSON.stringify({ description: DESCRIPTION }) });
+  blockedStatus = blocked.status;
+  await api("POST", "/verify", { token: new URL(me0.devVerifyUrl).searchParams.get("token") });
+}
 const asked = await api("POST", "/me/questions", { description: DESCRIPTION });
 console.log("job", asked.jobTitle, "| questions", JSON.stringify(asked.questions.map((q) => `${q.topic}: ${q.question}`)));
 await api("PUT", "/me", { agentName: "Juno", agentFace: 3 });
 const built = await api("POST", "/me/build");
 const made = await api("POST", "/sessions", { today: new Date().toLocaleDateString("en-CA") });
 const link = { sessionId: made.id, token: made.linkToken };
-const setup = { blockedStatus: blocked.status, questions: asked.questions, brand: started0.builder.brand, built: built.built };
+const setup = { blockedStatus, verified: me0.verified, step: me0.step, emailSent: started0.emailSent, questions: asked.questions, brand: started0.builder.brand, built: built.built };
 console.log("session", link.sessionId);
 const session = () => api("GET", `/sessions/${link.sessionId}`);
 
 // -- The candidate's browser, with the synthesized voice as its microphone --------------------
 const browser = await chromium.launch({ args: micArgs() });
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 }, permissions: ["microphone"] });
+if (cookie) {
+  await ctx.addCookies([cookie.playwright]);
+  if (new URL(API_BASE).origin !== new URL(APP).origin) await ctx.addCookies([{ ...cookie.playwright, url: API_BASE }]);
+}
 await ctx.addInitScript(micScript);
 await ctx.addInitScript(([token, id]) => { localStorage.setItem("bca_token", token); localStorage.setItem("bca_session", id); }, [started0.token, link.sessionId]);
 const phone = await ctx.newPage();
 phone.on("pageerror", (e) => console.log("pageerror:", e.message.slice(0, 200)));
 await phone.goto(`${APP}/call`, { waitUntil: "networkidle" });
+let skippedEmailPage = false;
+if (access.wall) {
+  // CheckEmail sends an already-verified builder straight to questions, even after a reload.
+  await phone.goto(`${APP}/check-email`, { waitUntil: "networkidle" });
+  await phone.waitForURL(/\/questions$/, { timeout: 15000 });
+  skippedEmailPage = new URL(phone.url()).pathname === "/questions";
+  await phone.goto(`${APP}/call`, { waitUntil: "networkidle" });
+}
 await phone.screenshot({ path: `${SHOTS}/${LABEL}-1-before.png` });
 await phone.locator('[data-testid="candidate-start"]').click();
 await phone.locator('[data-testid="candidate-call"][data-state="live"]').waitFor({ timeout: 45000 });
@@ -195,7 +220,10 @@ console.log(`${at()}  -- offer: ${afterScreening.journey.offer} | score ${afterS
 
 const checks = [];
 const check = (name, ok, detail = "") => { checks.push({ name, ok, detail }); console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail ? `  (${detail})` : ""}`); };
-check("no step past the email worked before the email was confirmed", setup.blockedStatus === 403, `questions before confirming: ${setup.blockedStatus}`);
+if (access.wall) {
+  check("Google sign-in confirms the builder without an email link", setup.verified && setup.step === "questions" && setup.emailSent === false);
+  check("check-email carries straight on to questions", skippedEmailPage);
+} else check("no step past the email worked before the email was confirmed", setup.blockedStatus === 403, `questions before confirming: ${setup.blockedStatus}`);
 check("the description became exactly two questions", setup.questions.length === 2 && setup.questions.every((q) => q.question && q.topic), setup.questions.map((q) => q.topic).join(", "));
 check("a brand was found for the website", /^#[0-9A-F]{6}$/i.test(setup.brand.primary) && /^#[0-9A-F]{6}$/i.test(setup.brand.secondary), `${setup.brand.source}: ${setup.brand.primary} / ${setup.brand.secondary}, logo ${setup.brand.logoUrl ? "yes" : "no"}`);
 check("the call scored the visitor's two topics", afterScreening.criteria.length === 2 && afterScreening.criteria.every((c) => c.score !== null), afterScreening.criteria.map((c) => `${c.label} ${c.score}`).join(", "));
@@ -400,7 +428,7 @@ if (accepted) {
     check("Ava said when forms were done", announcements.length >= 1, `${announcements.length} announcements`);
     check("Ava stayed silent otherwise while the candidate typed", unprompted.length === 0, unprompted.join(" | ").slice(0, 200));
     await phone.screenshot({ path: `${SHOTS}/${LABEL}-6-all-set.png` });
-    const view = await fetch(`${API}/public/interviews/${link.token}`).then((r) => r.json());
+    const view = await fetch(`${API}/public/interviews/${link.token}`, { headers }).then((r) => r.json());
     check("the candidate's page says all set", view.formApp?.allSet === true, JSON.stringify({ ...view.formApp, url: "…" }));
 
     // Her closing question, then goodbye.

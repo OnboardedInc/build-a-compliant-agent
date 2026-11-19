@@ -1,6 +1,6 @@
 # Tests
 
-Two end-to-end tests that drive the app in a real browser. There are no unit tests.
+Two end-to-end tests that drive the app in a real browser, and unit tests of the sign-in wall (`npm run test:unit`, no server needed).
 
 ## Before you run them
 
@@ -36,6 +36,8 @@ Each test reads these environment variables. All are optional.
 
 | Variable | Default | What it is |
 | --- | --- | --- |
+| `BASE_URL` | unset | A deployed site's address. Sets both `APP` and `API`. When the site's sign-in wall is on, the tests sign a session cookie with `SESSION_SECRET` from the git-ignored `.prod.vars` and skip the email-link steps. |
+| `TEST_ACCESS_EMAIL` | `qa@onboarded.com` | The signed-in address the cookie carries, and the builder's email, when the wall is on |
 | `APP` | `http://localhost:5176` | The app's address |
 | `API` | `http://localhost:8788` | The Worker's address (call test only) |
 | `WEBSITE` | `cloudflare.com` | The company website the brand is read from |

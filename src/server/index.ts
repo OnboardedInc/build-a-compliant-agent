@@ -1,10 +1,13 @@
 import { Hono, type Context } from "hono";
 import { HTTPException } from "hono/http-exception";
+import { getCookie } from "hono/cookie";
+import { auth, accessEmail } from "./endpoints/auth";
 import { builders, builderAuth, type BuilderRow } from "./endpoints/builders";
 import * as sessions from "./endpoints/sessions";
 import { brandFor, safeDomain } from "./services/brand";
 import { DEFAULT_BRAND } from "../shared/builder";
 import { secretMatches, redactData } from "./services/security";
+import { SESSION_COOKIE, sessionReady, wallOn } from "./services/access";
 
 export interface Bindings {
   DB: D1Database;
@@ -17,6 +20,9 @@ export interface Bindings {
   VAPI_ORG_ID?: string;
   BRAND_DEV_API_KEY?: string;
   ADMIN_TOKEN?: string;
+  ACCESS_GOOGLE_DOMAIN?: string;
+  GOOGLE_CLIENT_ID?: string;
+  SESSION_SECRET?: string;
   DEV_SHOW_VERIFY_LINK?: string;
   /** "1" sends the employer's I-9 Section 2 link to the browser. Off by default. */
   SHOW_EMPLOYER_LINK?: string;
@@ -24,7 +30,7 @@ export interface Bindings {
   EMAIL_FROM: string;
   SITE_NAME: string;
 }
-export type AppEnv = { Bindings: Bindings; Variables: { builder: BuilderRow } };
+export type AppEnv = { Bindings: Bindings; Variables: { builder: BuilderRow; accessEmail: string } };
 export type AppContext = Context<AppEnv>;
 const app = new Hono<AppEnv>();
 
@@ -33,11 +39,21 @@ app.use("/api/*", async (c, next) => {
   c.header("Referrer-Policy", "no-referrer");
   await next();
   if (c.res.headers.get("Content-Type")?.includes("application/json")) {
-    const secrets = [c.env.ONBOARDED_API_KEY, c.env.VAPI_PRIVATE_KEY, c.env.ADMIN_TOKEN, c.env.BRAND_DEV_API_KEY, c.get("builder")?.token, c.req.header("x-bca-tool-secret"), ...(c.req.path.startsWith("/api/mcp/") ? [c.req.header("Authorization")?.replace(/^Bearer\s+/i, "")] : [])];
+    const secrets = [c.env.ONBOARDED_API_KEY, c.env.VAPI_PRIVATE_KEY, c.env.ADMIN_TOKEN, c.env.BRAND_DEV_API_KEY, c.env.SESSION_SECRET, getCookie(c, SESSION_COOKIE), c.res.headers.get("Set-Cookie")?.match(/^__Host-bca_auth=([^;]+)/)?.[1], c.get("builder")?.token, c.req.header("x-bca-tool-secret"), ...(c.req.path.startsWith("/api/mcp/") ? [c.req.header("Authorization")?.replace(/^Bearer\s+/i, "")] : [])];
     const data: unknown = await c.res.clone().json();
     c.res = new Response(JSON.stringify(redactData(data, secrets)), { status: c.res.status, headers: c.res.headers });
   }
 });
+app.use("/api/*", async (c, next) => {
+  if (!wallOn(c.env) || c.req.path === "/api/health" || c.req.path.startsWith("/api/auth/") || c.req.path.startsWith("/api/vapi/")) return next();
+  if (!sessionReady(c.env)) return c.json({ error: "Sign-in is not set up yet.", signIn: "unavailable" }, 503);
+  let email: string | null = null;
+  try { email = await accessEmail(c); } catch { /* An invalid cookie or failed check never opens the wall. */ }
+  if (!email) return c.json({ error: "Sign in with your Google work account.", signIn: "required" }, 401);
+  c.set("accessEmail", email);
+  return next();
+});
+app.route("/api/auth", auth);
 app.get("/api/health", (c) => c.json({ status: "ok" }));
 app.post("/api/brand/preview", async (c) => {
   const body = await c.req.json<Record<string, unknown>>();

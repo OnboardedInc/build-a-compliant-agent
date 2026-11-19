@@ -52,6 +52,7 @@ Ports: Worker 8788, Vite 5176 (`/api` is proxied to the Worker), cloudflared's s
 | `BRAND_DEV_API_KEY` | Optional. Logo and colours from brand.dev. Without it the Worker reads the company's own home page. |
 | `ADMIN_TOKEN` | Bearer token for `/api/admin/*`. |
 | `DEV_SHOW_VERIFY_LINK` | `"1"` locally: `BuilderView.devVerifyUrl` carries the one-time link. Never set when deployed. |
+| `ACCESS_GOOGLE_DOMAIN`, `GOOGLE_CLIENT_ID`, `SESSION_SECRET` | The sign-in wall. Unset domain: off. Set: only Google accounts at that domain (both `hd` and the email's domain) get a session cookie, and every `/api` route but health, `/api/auth/*` and `/api/vapi/*` answers 401 without it. Set but `SESSION_SECRET` missing: 503. Set but `GOOGLE_CLIENT_ID` missing: nobody can sign in (401). With the wall on, the signed-in address is the builder's confirmed email and no link is sent. |
 | `EMAIL` (binding), `EMAIL_FROM`, `SITE_NAME` | Cloudflare Email Sending. `await env.EMAIL.send({ to, from, subject, html, text })`. A failed send is logged and reported in the response as `emailSent: false`; it never blocks the step. |
 
 The public address Vapi posts to: `settings.public_url` when set (the tunnel script saves it in local dev), else the request's own origin. A session link for a phone uses the same address.
@@ -78,11 +79,14 @@ interface Base {
 
 ## 3. API
 
-JSON everywhere. Errors: `{ error: string, errors?: FieldError[] }` (`src/shared/builder.ts`). Builder routes take `Authorization: Bearer <builder token>`; 401 without a valid one, 403 `{ error: "Confirm your email first." }` when the step needs a confirmed email.
+JSON everywhere. Errors: `{ error: string, errors?: FieldError[] }` (`src/shared/builder.ts`). With the sign-in wall on, every route below except health, `/api/auth/*` and the Vapi webhook also needs the session cookie (401 `{ error, signIn: "required" }` without it). Builder routes take `Authorization: Bearer <builder token>`; 401 without a valid one, 403 `{ error: "Confirm your email first." }` when the step needs a confirmed email.
 
 | Route | Auth | What |
 |---|---|---|
 | `GET /api/health` | none | `{ status: "ok" }` |
+| `GET /api/auth/me` | none | `AccessState`: `{ wall, ready, clientId, domain, email }` (`src/shared/access.ts`). |
+| `POST /api/auth/google` `{ credential }` | none | Checks a Google ID token and sets the session cookie. 404 with the wall off, 503 when it is not set up, 401 for a refused token. Answers `AccessState`. |
+| `POST /api/auth/logout` | none | Clears the session cookie. |
 | `POST /api/brand/preview` `{ website }` | none | `Brand` for the domain. Used by step 1 to show what was found before Continue. Never throws for an unknown domain: answers `DEFAULT_BRAND`. Cached per domain in `settings` (`brand:<domain>`) for a day. |
 | `POST /api/builders` `StartRequest` | none | Validates (work email, company 2 to 80 characters, a real domain). Creates the builder, saves the brand, sends the one-time link. `201 StartResponse` plus `emailSent`. 400 with `errors` per field. |
 | `GET /api/me` | builder | `BuilderView` |

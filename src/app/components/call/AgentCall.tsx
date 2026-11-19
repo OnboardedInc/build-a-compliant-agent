@@ -123,6 +123,12 @@ export function AgentCall({ token, initial, onBusyChange }: { token: string; ini
     const node = words.current;
     if (node) node.scrollTop = node.scrollHeight;
   }, [ava, voice.paused, wide]);
+  // The screening caption keeps the newest words in view the same way.
+  const screenWords = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const node = screenWords.current;
+    if (node) node.scrollTop = node.scrollHeight;
+  }, [ava, candidate, voice.paused]);
 
   return <main className="a2-candidate" style={{ "--agent-primary": info.brand.primary, "--agent-secondary": info.brand.secondary } as CSSProperties} data-testid="candidate-call"
     data-state={voice.active ? "live" : voice.connecting ? "connecting" : info.state} data-stage={info.stage ?? ""}
@@ -151,7 +157,7 @@ export function AgentCall({ token, initial, onBusyChange }: { token: string; ini
           <JourneyBar stage={info.stage} />
           <div className="a2-screening"><div className="a2-identity">{face()}<h1>{info.agentName}</h1><p>AI interviewer for {info.employer}</p><time>{formatClock(voice.seconds)}</time></div>
             <Wave speaking={voice.speaking && !voice.paused} />
-            <div className="a2-caption a2-screen-caption" aria-live="polite">{voice.paused ? <div><b>Paused</b><p>{PAUSED}</p></div> : <>{candidate && <div className="a2-you"><b>You</b><p>{candidate}</p></div>}<div><b>{info.agentName}{info.stage === "screen" && ` · question ${info.questionNow} of ${info.questionCount}`}</b><p>{ava || `Connected. ${info.agentName} will speak first.`}</p></div></>}</div>
+            <div className="a2-caption a2-screen-caption" ref={screenWords} aria-live="polite">{voice.paused ? <div><b>Paused</b><p>{PAUSED}</p></div> : <>{candidate && <div className="a2-you"><b>You</b><p>{candidate}</p></div>}<div><b>{info.agentName}{info.stage === "screen" && ` · question ${info.questionNow} of ${info.questionCount}`}</b><p>{ava || `Connected. ${info.agentName} will speak first.`}</p></div></>}</div>
           </div>
           {error && <p role="alert" className="a2-error">{error}</p>}
           <CallButtons voice={voice} />

@@ -13,7 +13,7 @@ export function StepFooter({ back, label = "Continue", busy, disabled, onNext, f
   return <footer className="step-footer">{back ? <Link className="back-button" to={back}><ArrowLeft size={16} />Back</Link> : <span />}<button className="primary-button" type={form ? "submit" : "button"} form={form} onClick={onNext} disabled={disabled || busy} aria-busy={busy}>{busy ? <Loader2 size={16} className="animate-spin" /> : null}{busy ? "Please wait…" : label}<ArrowRight size={16} /></button></footer>;
 }
 export function BuildLayout({ step, children, panel, footer }: { step: number; children: ReactNode; panel: ReactNode; footer: ReactNode }) {
-  return <div className="build-layout"><main className="build-main"><header className="build-header"><SiteMark /><Stepper step={step} /></header><div className="build-content">{children}</div>{footer}</main>{panel}</div>;
+  return <div className="build-layout"><main className="build-main"><div className="build-column"><header className="build-header"><SiteMark /><Stepper step={step} /></header><div className="build-content">{children}</div>{footer}</div></main>{panel}</div>;
 }
 export function PageHeading({ title, children }: { title: string; children: ReactNode }) {
   return <div className="page-heading"><h1>{title}</h1><p>{children}</p></div>;

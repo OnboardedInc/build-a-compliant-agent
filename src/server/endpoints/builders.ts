@@ -6,6 +6,7 @@ import { brandFor, safeDomain } from "../services/brand";
 import { sendVerification } from "../services/email";
 import { writeQuestions } from "../services/questions";
 import { publicBase } from "../services/security";
+import { wallOn } from "../services/access";
 
 export interface BuilderRow {
   id: string; token: string; email: string; company: string; website: string; brand: string;
@@ -24,7 +25,7 @@ const problem = (c: AppContext, errors: FieldError[]) => c.json({ error: "Check 
 export const builderAuth: MiddlewareHandler<AppEnv> = async (c, next) => {
   const token = /^Bearer\s+(\S+)$/i.exec(c.req.header("Authorization") || "")?.[1];
   const row = token ? await c.env.DB.prepare("SELECT * FROM builders WHERE token = ?").bind(token).first<BuilderRow>() : null;
-  if (!row) return c.json({ error: "Unauthorized" }, 401);
+  if (!row || wallOn(c.env) && row.email.toLowerCase() !== c.get("accessEmail")) return c.json({ error: "Unauthorized" }, 401);
   c.set("builder", row);
   return next();
 };
@@ -63,30 +64,36 @@ const PROTECTED = /\b(how old|your age|date of birth|birth ?date|born|pregnan|ma
 export const builders = new Hono<AppEnv>();
 builders.post("/builders", async (c) => {
   const body = await c.req.json<Record<string, unknown>>();
-  const email = value(body?.email).toLowerCase();
+  const internal = wallOn(c.env);
+  const signedInEmail = c.get("accessEmail");
+  if (internal && !signedInEmail) return c.json({ error: "Unauthorized" }, 401);
+  const suppliedEmail = value(body?.email).toLowerCase();
+  const email = internal ? signedInEmail : suppliedEmail;
   const company = value(body?.company);
   const website = safeDomain(value(body?.website));
   const errors: FieldError[] = [];
-  const emailError = workEmailProblem(email);
+  const emailError = internal ? (suppliedEmail && suppliedEmail !== signedInEmail ? `Use the Google address you signed in with: ${signedInEmail}.` : null) : workEmailProblem(email);
   if (emailError) errors.push({ field: "email", message: emailError });
   else if (email.length > 254) errors.push({ field: "email", message: "Enter a valid email address." });
   if (company.length < 2 || company.length > 80) errors.push({ field: "company", message: "Use 2 to 80 characters." });
   if (!website) errors.push({ field: "website", message: "Enter a public company domain." });
   if (errors.length) return problem(c, errors);
-  // No login guards this route, so the address is the limit: three links a day to any one address.
-  const recent = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM builders WHERE email = ? AND created_at > ?").bind(email, new Date(Date.now() - 86_400_000).toISOString()).first<{ n: number }>();
-  if ((recent?.n ?? 0) >= MAX_STARTS_PER_EMAIL) return c.json({ error: "A link was already sent to this address today. Open it, or try again tomorrow." }, 429);
+  // The public flow limits emails sent; the internal flow sends no verification mail.
+  if (!internal) {
+    const recent = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM builders WHERE email = ? AND created_at > ?").bind(email, new Date(Date.now() - 86_400_000).toISOString()).first<{ n: number }>();
+    if ((recent?.n ?? 0) >= MAX_STARTS_PER_EMAIL) return c.json({ error: "A link was already sent to this address today. Open it, or try again tomorrow." }, 429);
+  }
   const at = now();
   const id = `bld_${nanoid(12)}`;
   const token = nanoid(32);
-  const verifyToken = nanoid(32);
+  const verifyToken = internal ? null : nanoid(32);
   const brand = await brandFor(website!, c.env);
   await c.env.DB.prepare(`INSERT INTO builders
-    (id, token, email, company, website, brand, verify_token, verify_sent_at, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-    .bind(id, token, email, company, website, JSON.stringify(brand), verifyToken, at, at, at).run();
+    (id, token, email, company, website, brand, verify_token, verify_sent_at, verified_at, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .bind(id, token, email, company, website, JSON.stringify(brand), verifyToken, internal ? null : at, internal ? at : null, at, at).run();
   const row = (await read(c, id))!;
-  const emailSent = await sendVerification(c.env, email, await verificationUrl(c, row));
+  const emailSent = internal ? false : await sendVerification(c.env, email, await verificationUrl(c, row));
   return c.json({ token, builder: await view(c, row), emailSent } satisfies StartResponse & { emailSent: boolean }, 201);
 });
 builders.post("/verify", async (c) => {

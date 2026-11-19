@@ -49,3 +49,8 @@ lerna-debug.log*
 /spoken/
 .playwright/
 test-results/
+
+# Production settings, kept on this machine only: the generated deploy config (real D1 id)
+# and the production secrets the deployed tests sign a session cookie with.
+/wrangler.production.jsonc
+/.prod.vars

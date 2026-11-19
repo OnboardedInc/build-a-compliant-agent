@@ -9,7 +9,9 @@ npm run dev:voice      # build, then Worker (8788) + Vite (5176) + cloudflared t
 npm run dev            # Worker + Vite only. The building steps work; calls do not.
 npm run migrate:local  # apply migrations/*.sql to the local D1 database
 npm run build          # SPA to public/ (the tunnel address serves this build: rebuild after UI edits)
-npm run deploy         # build + wrangler deploy
+npm run deploy         # write wrangler.production.jsonc, build, wrangler deploy
+npm run migrate:remote # apply migrations/*.sql to the deployed D1 database
+npm run test:unit      # unit tests of the sign-in wall (no server needed)
 npx tsc --noEmit       # type check
 ```
 
@@ -31,6 +33,17 @@ tests/                    browser and spoken-call tests against a running dev se
 ```
 
 One Worker serves the API and the SPA. All configuration is env (`.dev.vars`, wrangler secrets); nothing a visitor enters is a credential. `src/server/index.ts` declares the env on the Hono `Bindings` type.
+
+## Sign-in wall (internal preview)
+
+`ACCESS_GOOGLE_DOMAIN` turns it on; unset, the site behaves as if the wall did not exist. Code: `src/server/services/access.ts` (Google ID token check, session cookie), `src/server/endpoints/auth.ts` (`/api/auth/me`, `/api/auth/google`, `/api/auth/logout`), the wall middleware in `src/server/index.ts`, and on the page `AccessGate` in `src/app/App.tsx` and `src/app/pages/SignIn.tsx`.
+
+- **The token check is done by hand with Web Crypto**: RS256 against Google's key set (cached by its `Cache-Control`), issuer, audience `GOOGLE_CLIENT_ID`, expiry, `email_verified`, and both `hd` and the email's domain equal to the setting. A missing `hd` fails: anyone can register a personal Google account under a work address, and only an account managed by the domain's Google Workspace carries `hd`.
+- **The session is a cookie, `__Host-bca_auth`**: the email and an expiry, signed with HMAC-SHA256 and `SESSION_SECRET`, HttpOnly, Secure, SameSite=Lax, 12 hours.
+- **Exempt routes**: `/api/health`, `/api/auth/*`, `/api/vapi/*`. Vapi's servers post to the webhook with the session's secret header and no cookie. Everything else, the candidate routes and the MCP doors included, needs the cookie. If you add a route that a server outside the browser calls, exempt it here and give it its own secret.
+- **Fails closed.** Domain set but `SESSION_SECRET` missing or under 32 characters: 503 on every protected route. Domain set but `GOOGLE_CLIENT_ID` missing: the page says sign-in is not set up yet and nobody can sign in, so protected routes answer 401. Only a holder of `SESSION_SECRET` can make a cookie then, which is how the deployed tests get in (`sessionReady` against `wallReady` in `access.ts`).
+- **The signed-in address is the builder's email and counts as confirmed**: no link is sent, any other address is refused, and the three-links-a-day limit does not apply. `builderAuth` also refuses a builder token whose email is not the signed-in address.
+- **The page tells a wall refusal from a builder refusal** by the `signIn` field in the 401/503 body. `apiFetch` throws `SignInRequiredError` for it, not `ApiError`, so the saved builder token is not wiped when a session expires.
 
 ## How the call works
 
@@ -81,6 +94,7 @@ Each of these stops a stranger on the public site from spending the shared Vapi 
 - **Vapi's `tool-calls` client message is off**, so tool arguments and results are not sent to the browser. The page only needs `tool-calls-result` to know a tool finished.
 - **The candidate's public routes give out no scores, requirements or API log.** Answers and scores come only from the conversation Vapi's servers post to the webhook, never from the candidate's browser.
 - Transcript line ids and tool arguments are cut to a fixed length before they are stored.
+- **With the wall on, every `/api` route but health, auth and the Vapi webhook needs a signed-in Google session** (see "Sign-in wall" above).
 - Every JSON response under `/api` has the configured secrets and the caller's tokens redacted before it is sent (`src/server/index.ts`).
 
 ## Testing
@@ -90,4 +104,5 @@ The tests in `tests/` drive a real browser against a running `npm run dev:voice`
 - **The browser walk** goes through the building steps and saves screenshots at 1440 and 390 px.
 - **The spoken call** builds an agent through the API, takes a whole call with a synthesized voice played through a fake microphone, fills every form in Onboarded's hosted page, and checks the result against Vapi's own log. Run it after any change to the prompt, the tools or the follow logic.
 - **Do not edit files while a spoken call runs.** A Worker or Vite reload ends the call.
+- **Against the deployed site**: `BASE_URL=https://<worker address> npm run test:ui` (or `test:call`). When the site has the wall on, the tests sign a session cookie for `qa@onboarded.com` (`TEST_ACCESS_EMAIL`) with `SESSION_SECRET` from the git-ignored `.prod.vars` (`tests/lib/access-cookie.mjs`) and skip the email-link steps.
 - Browser tests must launch Chromium with the fake-microphone flags from `tests/lib/fake-mic.mjs`; without them Chromium opens the real microphone.

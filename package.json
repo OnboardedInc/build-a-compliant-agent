@@ -10,10 +10,12 @@
 		"build": "vite build",
 		"typecheck": "tsc --noEmit",
 		"migrate:local": "for f in ./migrations/*.sql; do wrangler d1 execute bca-db --local --file=$f; done",
-		"deploy": "npm run build && wrangler deploy --minify",
+		"deploy": "node scripts/production-config.mjs && npm run build && wrangler deploy --minify -c wrangler.production.jsonc",
+		"migrate:remote": "node scripts/production-config.mjs && for f in ./migrations/*.sql; do wrangler d1 execute bca-db --remote -y -c wrangler.production.jsonc --file=$f; done",
 		"cf-typegen": "wrangler types --env-interface CloudflareBindings",
 		"test:ui": "node tests/ui-walk.mjs",
-		"test:call": "node tests/spoken-call.mjs"
+		"test:call": "node tests/spoken-call.mjs",
+		"test:unit": "node --test tests/unit/"
 	},
 	"dependencies": {
 		"@vapi-ai/web": "^3.1.0",

@@ -29,3 +29,13 @@ export const devVar = (name) => {
   if (!value) throw new Error(`${name} is not set in .dev.vars.`);
   return value;
 };
+
+/** One value from the gitignored .prod.vars, read at run time. Never print what it returns. */
+export const prodVar = (name) => {
+  const file = resolve(REPO, ".prod.vars");
+  if (!existsSync(file)) throw new Error("No .prod.vars at the repository root. Add the deployed test secrets there.");
+  const line = readFileSync(file, "utf8").match(new RegExp(`^${name}=(.*)$`, "m"));
+  const value = line?.[1].trim().replace(/^["']|["']$/g, "");
+  if (!value) throw new Error(`${name} is not set in .prod.vars.`);
+  return value;
+};

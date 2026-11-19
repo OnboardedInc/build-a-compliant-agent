@@ -2,10 +2,19 @@
 // each screen at desktop and phone width (tests/out/ui/).
 //   npm run test:ui      (needs `npm run dev:voice` or `npm run dev` running; APP defaults to http://localhost:5176)
 //   APP=<app address>  WEBSITE=<domain to pull a brand from>  TEST_EMAIL_DOMAIN=<domain for the made-up work email>
+//   BASE_URL=<deployed site> sets app and Worker; otherwise APP and API retain their local defaults.
+//   Wall on: .prod.vars must contain SESSION_SECRET; TEST_ACCESS_EMAIL defaults to qa@onboarded.com.
 import { chromium } from "playwright";
 import { outDir } from "./lib/paths.mjs";
+import { accessCookie } from "./lib/access-cookie.mjs";
 
-const APP = process.env.APP ?? "http://localhost:5176";
+const APP = (process.env.BASE_URL ?? process.env.APP ?? "http://localhost:5176").replace(/\/$/, "");
+const API_BASE = (process.env.BASE_URL ?? process.env.API ?? "http://localhost:8788").replace(/\/$/, "");
+const accessResponse = await fetch(`${API_BASE}/api/auth/me`);
+if (!accessResponse.ok) throw new Error(`Access check failed (${accessResponse.status}).`);
+const access = await accessResponse.json();
+const accessEmail = process.env.TEST_ACCESS_EMAIL ?? "qa@onboarded.com";
+const cookie = access.wall ? await accessCookie({ baseUrl: APP, email: accessEmail }) : null;
 const WEBSITE = process.env.WEBSITE ?? "cloudflare.com";
 // A reserved domain by default, so no mail can reach a real inbox.
 const EMAIL_DOMAIN = process.env.TEST_EMAIL_DOMAIN ?? "larkspur-staffing.example";
@@ -19,7 +28,8 @@ const page = await ctx.newPage();
 const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
 // A first visit to /call asks for the latest session and is told there is none (404): expected.
-page.on("console", (m) => { if (m.type() === "error" && !/404 \(Not Found\)/.test(m.text())) errors.push(m.text()); });
+// Over HTTP/2 (a deployed site) the browser logs it as "404 ()", with no status text.
+page.on("console", (m) => { if (m.type() === "error" && !/status of 404 \((Not Found)?\)/.test(m.text())) errors.push(m.text()); });
 const shot = async (name) => {
   await page.waitForTimeout(500);
   await page.screenshot({ path: `${SHOTS}/${name}-1440.png` });
@@ -34,6 +44,15 @@ const shot = async (name) => {
 
 // A later step is not reachable before the first.
 await page.goto(`${APP}/questions`, { waitUntil: "networkidle" });
+if (cookie) {
+  await page.getByTestId("sign-in").waitFor({ timeout: 15000 });
+  check("the internal preview requires sign-in without a cookie", await page.getByTestId("sign-in").isVisible());
+  await ctx.addCookies([cookie.playwright]);
+  if (new URL(API_BASE).origin !== new URL(APP).origin) await ctx.addCookies([{ ...cookie.playwright, url: API_BASE }]);
+  await page.reload({ waitUntil: "networkidle" });
+}
+await page.waitForURL((url) => url.pathname === "/", { timeout: 15000 });
+await page.getByLabel("Work email").waitFor();
 check("a visitor with nothing built is sent to step 1", new URL(page.url()).pathname === "/", page.url());
 
 // Step 1: a personal address is refused, then a work address goes through.
@@ -46,25 +65,29 @@ check("step 1 shows what was found on the website", (await page.getByText(/found
 await page.getByRole("button", { name: /continue/i }).click();
 await page.getByText(/gmail\.com are not accepted/i).first().waitFor({ timeout: 8000 }).catch(() => {});
 check("a personal email is refused at the field", (await page.getByText(/gmail\.com are not accepted/i).count()) > 0 && new URL(page.url()).pathname === "/");
-await page.getByLabel("Work email").fill(`maya.ui+${Date.now()}@${EMAIL_DOMAIN}`);
+await page.getByLabel("Work email").fill(access.wall ? accessEmail : `maya.ui+${Date.now()}@${EMAIL_DOMAIN}`);
 const o1 = await shot("1-company");
 check("step 1 fits a phone", o1 <= 1, `overflow ${o1}px`);
 await page.getByRole("button", { name: /continue/i }).click();
-await page.waitForURL(/check-email/, { timeout: 30000 });
-
-// Step 2: the page waits, and carries on when the one-time link is opened elsewhere.
-const o2 = await shot("2-check-email");
-check("step 2 fits a phone", o2 <= 1, `overflow ${o2}px`);
-const linkText = await page.getByText(/\/verify\?token=/).first().textContent().catch(() => null);
-const href = linkText?.match(/https?:\/\/\S+\/verify\?token=[\w-]+/)?.[0] ?? (await page.locator('a[href*="/verify?token="]').first().getAttribute("href").catch(() => null));
-check("local development shows the one-time link", !!href);
-const other = await ctx.newPage();
-await other.goto(`${APP}/verify?token=${new URL(href).searchParams.get("token")}`, { waitUntil: "networkidle" });
-await other.waitForURL(/questions/, { timeout: 15000 }).catch(() => {});
-check("opening the link lands on the questions", /questions/.test(other.url()), other.url());
-await other.close();
-await page.waitForURL(/questions/, { timeout: 15000 }).catch(() => {});
-check("the waiting page carried on by itself", /questions/.test(page.url()), page.url());
+if (access.wall) {
+  await page.waitForURL(/\/questions$/, { timeout: 30000 });
+  check("the company step carries straight on to questions with Google sign-in", new URL(page.url()).pathname === "/questions");
+} else {
+  await page.waitForURL(/check-email/, { timeout: 30000 });
+  // Step 2: the page waits, and carries on when the one-time link is opened elsewhere.
+  const o2 = await shot("2-check-email");
+  check("step 2 fits a phone", o2 <= 1, `overflow ${o2}px`);
+  const linkText = await page.getByText(/\/verify\?token=/).first().textContent().catch(() => null);
+  const href = linkText?.match(/https?:\/\/\S+\/verify\?token=[\w-]+/)?.[0] ?? (await page.locator('a[href*="/verify?token="]').first().getAttribute("href").catch(() => null));
+  check("local development shows the one-time link", !!href);
+  const other = await ctx.newPage();
+  await other.goto(`${APP}/verify?token=${new URL(href).searchParams.get("token")}`, { waitUntil: "networkidle" });
+  await other.waitForURL(/questions/, { timeout: 15000 }).catch(() => {});
+  check("opening the link lands on the questions", /questions/.test(other.url()), other.url());
+  await other.close();
+  await page.waitForURL(/questions/, { timeout: 15000 }).catch(() => {});
+  check("the waiting page carried on by itself", /questions/.test(page.url()), page.url());
+}
 
 // Step 3: a description becomes two questions; one can be edited.
 await page.getByLabel(/your screening/i).fill("We staff banquet servers and bartenders for hotels. I care most about real serving experience, and whether evenings and weekends work for them, because that is most of our shifts.");
