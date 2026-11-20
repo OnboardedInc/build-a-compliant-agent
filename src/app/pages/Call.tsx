@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { localToday, type CandidateInterview, type InterviewSession } from "@shared/interview";
-import { ApiError, apiFetch, SESSION_KEY } from "@/lib/api";
+import { ApiError, apiFetch, appPath, SESSION_KEY } from "@/lib/api";
 import { OnboardedIcon } from "@/components/call/brand";
 import { AgentCall } from "@/components/call/AgentCall";
 import { WatchView } from "@/components/call/WatchView";
@@ -53,7 +53,7 @@ export function CandidateCall() {
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
-    void fetch(`/api/public/interviews/${encodeURIComponent(token)}`).then(async response => {
+    void fetch(appPath(`/api/public/interviews/${encodeURIComponent(token)}`)).then(async response => {
       if (!response.ok) { const body = await response.json().catch(() => null) as { error?: string } | null; throw new Error(body?.error ?? "This interview link does not work."); }
       return response.json() as Promise<CandidateInterview>;
     }).then(next => { if (!cancelled) setInfo(next); }).catch(reason => { if (!cancelled) setError(reason instanceof Error ? reason.message : "This interview link does not work."); });

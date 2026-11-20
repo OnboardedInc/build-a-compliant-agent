@@ -1,5 +1,7 @@
+import { appPath } from "@/lib/api";
+
 export function OnboardedWordmark({ height = 16 }: { height?: number }) {
-  return <img src="/onboarded-wordmark-on-navy.svg" alt="Onboarded" width={height * 6.5} height={height} style={{ display: "block", flexShrink: 0 }} />;
+  return <img src={appPath("/onboarded-wordmark-on-navy.svg")} alt="Onboarded" width={height * 6.5} height={height} style={{ display: "block", flexShrink: 0 }} />;
 }
 
 export function OnboardedIcon({ size = 16 }: { size?: number }) {

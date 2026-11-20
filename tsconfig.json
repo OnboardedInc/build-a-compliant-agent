@@ -7,7 +7,7 @@
     "skipLibCheck": true,
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
-    "types": ["./worker-configuration.d.ts", "node"],
+    "types": ["./worker-configuration.d.ts", "node", "vite/client"],
     "paths": {
       "@/*": ["./src/app/*"],
       "@shared/*": ["./src/shared/*"]

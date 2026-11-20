@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronsDownIcon, ChevronsUpIcon, Loader2, MicIcon, MicOffIcon, PauseIcon, PhoneOffIcon, PlayIcon } from "lucide-react";
 import { MAX_CALL_SECONDS, MAX_CONNECTED_SECONDS, callClock, localToday, type CandidateInterview, type InterviewEvents, type JourneyStage, type VoiceJoin } from "@shared/interview";
+import { appPath } from "@/lib/api";
 import { useVoiceCall, type VoiceApi, type VoiceCall, type VoiceLine } from "./useVoiceCall";
 import { errorMessage } from "./useSession";
 import { AgentFace } from "../AgentFace";
@@ -52,7 +53,7 @@ export function AgentCall({ token, initial, onBusyChange }: { token: string; ini
   const words = useRef<HTMLParagraphElement>(null);
   const alive = useRef(true);
   const queue = useRef<Promise<unknown>>(Promise.resolve());
-  const base = `/api/public/interviews/${encodeURIComponent(token)}`;
+  const base = appPath(`/api/public/interviews/${encodeURIComponent(token)}`);
 
   useEffect(() => {
     alive.current = true;

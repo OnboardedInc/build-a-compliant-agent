@@ -1,4 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
+import { basePath, withBase } from "../../shared/base-path";
 
 /** Compare fixed-size digests so a supplied secret does not affect comparison timing. */
 export async function secretMatches(provided: string | undefined, expected: string | undefined): Promise<boolean> {
@@ -12,6 +13,8 @@ export async function publicBase(db: D1Database, requestUrl: string): Promise<st
   const saved = await db.prepare("SELECT value FROM settings WHERE key = 'public_url'").first<{ value: string | null }>();
   return saved?.value || new URL(requestUrl).origin;
 }
+
+export const publicUrl = (origin: string, base: string | undefined, path: string): string => origin + withBase(basePath(base), path);
 
 /** Defence in depth for upstream messages that may echo a key. */
 export function redact(text: string, secrets: Array<string | null | undefined>): string {

@@ -7,7 +7,7 @@
 //   npm run test:call        (needs `npm run dev:voice` running in this repository; macOS only: it uses `say` and `afconvert`)
 //   LABEL=<name for the saved screenshots and call>  WEBSITE=<domain to pull a brand from>
 //   TEST_EMAIL_DOMAIN=<domain for the made-up work email>  API=<worker address>  APP=<app address>
-//   BASE_URL=<deployed site> sets app and Worker; otherwise APP and API retain their local defaults.
+//   BASE_URL=<site URL, including its base path> sets app and Worker; otherwise APP and API retain their local defaults.
 //   Wall on: .prod.vars needs SESSION_SECRET; TEST_ACCESS_EMAIL defaults to qa@onboarded.com.
 //   The wall skips the one-time email link; the Vapi key is still read from .dev.vars.
 import { chromium } from "playwright";
@@ -111,7 +111,7 @@ const browser = await chromium.launch({ args: micArgs() });
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 }, permissions: ["microphone"] });
 if (cookie) {
   await ctx.addCookies([cookie.playwright]);
-  if (new URL(API_BASE).origin !== new URL(APP).origin) await ctx.addCookies([{ ...cookie.playwright, url: API_BASE }]);
+  if (new URL(API_BASE).origin !== new URL(APP).origin) await ctx.addCookies([{ ...cookie.playwright, url: new URL(API_BASE).origin }]);
 }
 await ctx.addInitScript(micScript);
 await ctx.addInitScript(([token, id]) => { localStorage.setItem("bca_token", token); localStorage.setItem("bca_session", id); }, [started0.token, link.sessionId]);
@@ -122,8 +122,9 @@ let skippedEmailPage = false;
 if (access.wall) {
   // CheckEmail sends an already-verified builder straight to questions, even after a reload.
   await phone.goto(`${APP}/check-email`, { waitUntil: "networkidle" });
-  await phone.waitForURL(/\/questions$/, { timeout: 15000 });
-  skippedEmailPage = new URL(phone.url()).pathname === "/questions";
+  const questionsPath = new URL(`${APP}/questions`).pathname;
+  await phone.waitForURL((url) => url.pathname === questionsPath, { timeout: 15000 });
+  skippedEmailPage = new URL(phone.url()).pathname === questionsPath;
   await phone.goto(`${APP}/call`, { waitUntil: "networkidle" });
 }
 await phone.screenshot({ path: `${SHOTS}/${LABEL}-1-before.png` });

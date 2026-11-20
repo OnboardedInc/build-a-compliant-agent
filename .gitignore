@@ -16,6 +16,7 @@ dist/
 # deps
 node_modules/
 .wrangler
+/wrangler.preview.jsonc
 
 # env
 .env

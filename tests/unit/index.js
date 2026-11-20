@@ -6,3 +6,4 @@ import "./call.test.mjs";
 import "./limits.test.mjs";
 import "./notify.test.mjs";
 import "./emailDomains.test.mjs";
+import "./base-path.test.mjs";

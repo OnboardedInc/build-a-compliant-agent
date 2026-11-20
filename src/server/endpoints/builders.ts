@@ -9,7 +9,7 @@ import { AGENT_NAME_MAX, FACE_COUNT, DEFAULT_BRAND, workEmailProblem, type Brand
 import { brandFor, safeDomain } from "../services/brand";
 import { sendVerification } from "../services/email";
 import { writeQuestions } from "../services/questions";
-import { publicBase } from "../services/security";
+import { publicBase, publicUrl } from "../services/security";
 import { wallOn } from "../services/access";
 
 export interface BuilderRow {
@@ -38,7 +38,7 @@ const confirmed: MiddlewareHandler<AppEnv> = async (c, next) => {
   return next();
 };
 async function verificationUrl(c: AppContext, row: BuilderRow): Promise<string> {
-  return `${await publicBase(c.env.DB, c.req.url)}/verify?token=${encodeURIComponent(row.verify_token!)}`;
+  return publicUrl(await publicBase(c.env.DB, c.req.url), c.env.BASE_PATH, `/verify?token=${encodeURIComponent(row.verify_token!)}`);
 }
 async function view(c: AppContext, row: BuilderRow): Promise<BuilderView> {
   const questions = questionsOf(row);

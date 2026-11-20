@@ -34,6 +34,13 @@ tests/                    browser and spoken-call tests against a running dev se
 
 One Worker serves the API and the SPA. All configuration is env (`.dev.vars`, wrangler secrets); nothing a visitor enters is a credential. `src/server/index.ts` declares the env on the Hono `Bindings` type.
 
+## Base path
+
+- **The default is the root.** An unset or empty `BCA_BASE_PATH` serves the app at `/`. With `BCA_BASE_PATH=/hiring-agent`, the app, assets and API live under `/hiring-agent/`, and `/` serves Coming Soon. Root `/api/...` requests still reach Hono.
+- **Deploy uses one setting for both parts.** `npm run deploy` passes the same `BCA_BASE_PATH` to the SPA build and the generated Worker's `BASE_PATH` var. Set `BCA_SITE_DOMAIN` to a hostname to add it as a custom domain in the generated config.
+- **Preview on port 8790.** `npm run preview:base` serves `/hiring-agent/` with the same local D1 state as `npm run dev:worker`. The browser tests accept `BASE_URL=http://localhost:8790/hiring-agent`.
+- **Keep the Turnstile hostname list to hostnames and the Vapi tunnel URL to its HTTPS origin.** The Worker appends the base path to app URLs.
+
 ## Sign-in wall (internal preview)
 
 `ACCESS_GOOGLE_DOMAIN` turns it on; unset, the site behaves as if the wall did not exist. Code: `src/server/services/access.ts` (Google ID token check, session cookie), `src/server/endpoints/auth.ts` (`/api/auth/me`, `/api/auth/google`, `/api/auth/logout`), the wall middleware in `src/server/index.ts`, and on the page `AccessGate` in `src/app/App.tsx` and `src/app/pages/SignIn.tsx`.

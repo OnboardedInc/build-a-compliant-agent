@@ -6,6 +6,7 @@ import { builders, builderAuth, type BuilderRow } from "./endpoints/builders";
 import * as sessions from "./endpoints/sessions";
 import { brandFor, safeDomain } from "./services/brand";
 import { DEFAULT_BRAND } from "../shared/builder";
+import { basePath, route, withBase } from "../shared/base-path";
 import { secretMatches, redactData } from "./services/security";
 import { SESSION_COOKIE, sessionReady, wallOn } from "./services/access";
 import { notHuman } from "./services/turnstile";
@@ -14,6 +15,7 @@ import { personalEmailProblem } from "./services/emailDomains";
 export interface Bindings {
   DB: D1Database;
   ASSETS: Fetcher;
+  BASE_PATH?: string;
   ONBOARDED_API_BASE?: string;
   ONBOARDED_API_KEY?: string;
   ONBOARDED_EMPLOYER_ID?: string;
@@ -116,4 +118,25 @@ app.onError((error, c) => {
   console.error("Worker request failed");
   return c.json({ error: "Something went wrong. Try again." }, 500);
 });
-export default app;
+export default {
+  async fetch(request: Request, env: Bindings, ctx: ExecutionContext): Promise<Response> {
+    const base = basePath(env.BASE_PATH);
+    if (!base) return app.fetch(request, env, ctx);
+    const url = new URL(request.url);
+    const target = route(base, url.pathname);
+    if (target.kind === "hono") return app.fetch(request, env, ctx);
+    if (target.kind === "redirect") return new Response(null, { status: target.status, headers: { Location: `${target.to}${url.search}` } });
+    if (target.kind === "app-api") {
+      url.pathname = target.path;
+      return app.fetch(new Request(url, request), env, ctx);
+    }
+    const insideApp = target.kind === "app-page";
+    url.pathname = insideApp ? withBase(base, "/index.html") : "/index.html";
+    url.search = "";
+    const asset = await env.ASSETS.fetch(new Request(url, { method: request.method === "HEAD" ? "HEAD" : "GET" }));
+    if (!asset.ok) return asset;
+    const response = new Response(asset.body, { status: target.kind === "root" ? target.status : 200, headers: asset.headers });
+    if (insideApp) response.headers.set("Cache-Control", "no-cache");
+    return response;
+  },
+};

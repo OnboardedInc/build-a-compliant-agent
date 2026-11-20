@@ -7,5 +7,5 @@ export async function accessCookie({ baseUrl, email = "qa@onboarded.com" }) {
   if (secret.length < 32) throw new Error("SESSION_SECRET in .prod.vars must contain at least 32 characters.");
   const value = await signSession(email, secret);
   const name = SESSION_COOKIE;
-  return { name, value, header: `${name}=${value}`, playwright: { name, value, url: baseUrl, secure: true, httpOnly: true, sameSite: "Lax" } };
+  return { name, value, header: `${name}=${value}`, playwright: { name, value, url: new URL(baseUrl).origin, secure: true, httpOnly: true, sameSite: "Lax" } };
 }

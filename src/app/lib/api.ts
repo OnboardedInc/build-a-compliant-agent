@@ -1,9 +1,12 @@
 import type { ApiProblem, FieldError } from "@shared/builder";
 import type { AccessState } from "@shared/access";
+import { withBase } from "@shared/base-path";
 export type { AccessState } from "@shared/access";
 
 export const TOKEN_KEY = "bca_token";
 export const SESSION_KEY = "bca_session";
+export const APP_BASE = import.meta.env.BASE_URL.slice(0, -1);
+export const appPath = (path: string): string => withBase(APP_BASE, path);
 
 export class ApiError extends Error {
   constructor(public status: number, message: string, public errors: FieldError[] = []) {
@@ -24,7 +27,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   const token = localStorage.getItem(TOKEN_KEY);
   if (token) headers.set("Authorization", `Bearer ${token}`);
   if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
-  const response = await fetch(path, { ...init, headers });
+  const response = await fetch(appPath(path), { ...init, headers });
   if (!response.ok) {
     const problem = await response.json().catch(() => null) as (ApiProblem & { signIn?: unknown }) | null;
     if ((response.status === 401 || response.status === 503) && problem && typeof problem === "object" && "signIn" in problem) {

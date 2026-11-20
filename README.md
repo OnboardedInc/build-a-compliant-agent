@@ -94,6 +94,14 @@ To finish it, create a Google OAuth client of type "Web application" in Google C
 
 A deployed Worker needs no tunnel: Vapi posts to the Worker's own address.
 
+### Serve the app under a path
+
+Leave `BCA_BASE_PATH` unset or empty to serve the app at `/`. Set `BCA_BASE_PATH=/hiring-agent` to serve the app, its assets and its API under `/hiring-agent/` and the Coming Soon page at `/`. Existing `/api/...` callers still work. `npm run deploy` uses the same `BCA_BASE_PATH` for the SPA build and the Worker's generated `BASE_PATH` var. Set `BCA_SITE_DOMAIN` to a hostname to add it as a custom domain in the generated config.
+
+Run `npm run preview:base` and open `http://localhost:8790/hiring-agent/`. The preview uses the same local D1 state as `npm run dev:worker`. The browser tests accept `BASE_URL=http://localhost:8790/hiring-agent`.
+
+Keep the Turnstile hostname list to hostnames and the Vapi public URL for a tunnel to its HTTPS origin. The Worker appends the base path when it builds app URLs.
+
 ## Not built yet
 
 - Rate limiting by IP. Turnstile covers the two routes that take no login (`POST /api/brand/preview` and `POST /api/builders`); nothing limits one address.

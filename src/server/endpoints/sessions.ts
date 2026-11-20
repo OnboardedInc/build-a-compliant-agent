@@ -13,7 +13,7 @@
 import type { AppContext as Context } from "../index";
 import type { Brand, ScreeningQuestion } from "../../shared/builder";
 import { builderOf } from "./builders";
-import { secretMatches, redactData } from "../services/security";
+import { secretMatches, redactData, publicUrl } from "../services/security";
 import { nanoid } from "nanoid";
 import {
   FIT_THRESHOLD,
@@ -755,7 +755,7 @@ async function callFor(c: Context, row: Row) {
         site: s.label,
         where: [s.city, s.state].filter(Boolean).join(", ") || null,
       })),
-      toolUrl: `${toolBase}/api/vapi/tool-calls/${row.id}`,
+      toolUrl: publicUrl(toolBase, c.env.BASE_PATH, `/api/vapi/tool-calls/${row.id}`),
       toolSecret: row.tool_secret,
     });
     const started = Date.now();
@@ -764,7 +764,7 @@ async function callFor(c: Context, row: Row) {
       "assistant.model: openai gpt-4.1",
       "assistant.tools: get_requirements, request_offer, start_paperwork, read_form, endCall",
       "assistant.serverMessages: conversation-update (the note-taker reads the call from Vapi's servers)",
-      `tools.server.url: ${toolBase.replace(/^https?:\/\//, "")}/api/vapi/tool-calls/…`,
+      `tools.server.url: ${publicUrl(toolBase, c.env.BASE_PATH, "/api/vapi/tool-calls/…").replace(/^https?:\/\//, "")}`,
     ];
     const detail = "Create the voice call. The browser joins it; the key stays on the server.";
     let join;

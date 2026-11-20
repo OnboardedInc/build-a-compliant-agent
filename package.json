@@ -8,6 +8,7 @@
 		"dev:app": "vite",
 		"dev:voice": "npm run build && concurrently -n worker,app,voice \"npm run dev:worker\" \"npm run dev:app\" \"node scripts/voice-tunnel.mjs\"",
 		"build": "vite build",
+		"preview:base": "export BCA_BASE_PATH=/hiring-agent && npm run build && node scripts/preview-config.mjs && wrangler dev --port 8790 -c wrangler.preview.jsonc",
 		"typecheck": "tsc --noEmit",
 		"migrate:local": "for f in ./migrations/*.sql; do wrangler d1 execute bca-db --local --file=$f; done",
 		"deploy": "node scripts/production-config.mjs && npm run build && wrangler deploy --minify -c wrangler.production.jsonc",

@@ -11,7 +11,7 @@ import { Name } from "./pages/Name";
 import { Built } from "./pages/Built";
 import { Call, CandidateCall } from "./pages/Call";
 import { SignIn } from "./pages/SignIn";
-import { readAccess, signOut, type AccessState } from "./lib/api";
+import { APP_BASE, readAccess, signOut, type AccessState } from "./lib/api";
 
 const AccessContext = createContext<(AccessState & { signOut: () => Promise<void> }) | null>(null);
 export function useAccess() {
@@ -72,7 +72,7 @@ function RouteEffects() {
   return null;
 }
 function BuilderApp() {
-  return <BrowserRouter><BuilderProvider><RouteEffects /><Routes><Route path="/" element={<Guard step={1}><CompanyRoute /></Guard>} /><Route path="/check-email" element={<Guard step={2}><CheckEmail /></Guard>} /><Route path="/verify" element={<Verify />} /><Route path="/questions" element={<Guard step={3}><Questions /></Guard>} /><Route path="/name" element={<Guard step={4}><Name /></Guard>} /><Route path="/built" element={<Guard step={5}><Built /></Guard>} /><Route path="/call" element={<Guard step={5}><Call /></Guard>} /><Route path="/i/:token" element={<CandidateCall />} /><Route path="*" element={<Navigate to="/" replace />} /></Routes></BuilderProvider></BrowserRouter>;
+  return <BrowserRouter basename={APP_BASE || undefined}><BuilderProvider><RouteEffects /><Routes><Route path="/" element={<Guard step={1}><CompanyRoute /></Guard>} /><Route path="/check-email" element={<Guard step={2}><CheckEmail /></Guard>} /><Route path="/verify" element={<Verify />} /><Route path="/questions" element={<Guard step={3}><Questions /></Guard>} /><Route path="/name" element={<Guard step={4}><Name /></Guard>} /><Route path="/built" element={<Guard step={5}><Built /></Guard>} /><Route path="/call" element={<Guard step={5}><Call /></Guard>} /><Route path="/i/:token" element={<CandidateCall />} /><Route path="*" element={<Navigate to="/" replace />} /></Routes></BuilderProvider></BrowserRouter>;
 }
 export default function App() {
   return <AccessGate><BuilderApp /></AccessGate>;

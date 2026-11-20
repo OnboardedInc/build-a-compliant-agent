@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { CandidateFormApp } from "@shared/interview";
+import { appPath } from "@/lib/api";
 
 // Onboarded's form app on the candidate's screen. The app is an MCP App: a tool of the
 // Onboarded MCP server (show_forms) names a `ui://` resource, and its result carries what the
@@ -28,7 +29,7 @@ interface ToolInfo {
 let rpcId = 0;
 
 async function mcp<T>(token: string, method: string, params: Record<string, unknown> = {}): Promise<T> {
-  const res = await fetch(`/api/public/interviews/${encodeURIComponent(token)}/mcp`, {
+  const res = await fetch(appPath(`/api/public/interviews/${encodeURIComponent(token)}/mcp`), {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify({ jsonrpc: "2.0", id: ++rpcId, method, params }),

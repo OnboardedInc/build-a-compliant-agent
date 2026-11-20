@@ -2,7 +2,7 @@
 // each screen at desktop and phone width (tests/out/ui/).
 //   npm run test:ui      (needs `npm run dev:voice` or `npm run dev` running; APP defaults to http://localhost:5176)
 //   APP=<app address>  WEBSITE=<domain to pull a brand from>  TEST_EMAIL_DOMAIN=<domain for the made-up work email>
-//   BASE_URL=<deployed site> sets app and Worker; otherwise APP and API retain their local defaults.
+//   BASE_URL=<site URL, including its base path> sets app and Worker; otherwise APP and API retain their local defaults.
 //   Wall on: .prod.vars must contain SESSION_SECRET; TEST_ACCESS_EMAIL defaults to qa@onboarded.com.
 import { chromium } from "playwright";
 import { outDir } from "./lib/paths.mjs";
@@ -10,6 +10,8 @@ import { accessCookie } from "./lib/access-cookie.mjs";
 
 const APP = (process.env.BASE_URL ?? process.env.APP ?? "http://localhost:5176").replace(/\/$/, "");
 const API_BASE = (process.env.BASE_URL ?? process.env.API ?? "http://localhost:8788").replace(/\/$/, "");
+const atPage = (path) => (url) => url.pathname === new URL(`${APP}${path}`).pathname;
+const atHome = (url) => atPage("/")(url) || url.pathname === new URL(APP).pathname;
 const accessResponse = await fetch(`${API_BASE}/api/auth/me`);
 if (!accessResponse.ok) throw new Error(`Access check failed (${accessResponse.status}).`);
 const access = await accessResponse.json();
@@ -48,12 +50,12 @@ if (cookie) {
   await page.getByTestId("sign-in").waitFor({ timeout: 15000 });
   check("the internal preview requires sign-in without a cookie", await page.getByTestId("sign-in").isVisible());
   await ctx.addCookies([cookie.playwright]);
-  if (new URL(API_BASE).origin !== new URL(APP).origin) await ctx.addCookies([{ ...cookie.playwright, url: API_BASE }]);
+  if (new URL(API_BASE).origin !== new URL(APP).origin) await ctx.addCookies([{ ...cookie.playwright, url: new URL(API_BASE).origin }]);
   await page.reload({ waitUntil: "networkidle" });
 }
-await page.waitForURL((url) => url.pathname === "/", { timeout: 15000 });
+await page.waitForURL(atHome, { timeout: 15000 });
 await page.getByLabel("Work email").waitFor();
-check("a visitor with nothing built is sent to step 1", new URL(page.url()).pathname === "/", page.url());
+check("a visitor with nothing built is sent to step 1", atHome(new URL(page.url())), page.url());
 
 // Step 1: a personal address is refused, then a work address goes through.
 await page.getByLabel("Work email").fill("someone@gmail.com");
@@ -64,16 +66,16 @@ await page.getByText(/found on/i).first().waitFor({ timeout: 30000 }).catch(() =
 check("step 1 shows what was found on the website", (await page.getByText(/found on/i).count()) > 0);
 await page.getByRole("button", { name: /continue/i }).click();
 await page.getByText(/gmail\.com are not accepted/i).first().waitFor({ timeout: 8000 }).catch(() => {});
-check("a personal email is refused at the field", (await page.getByText(/gmail\.com are not accepted/i).count()) > 0 && new URL(page.url()).pathname === "/");
+check("a personal email is refused at the field", (await page.getByText(/gmail\.com are not accepted/i).count()) > 0 && atHome(new URL(page.url())));
 await page.getByLabel("Work email").fill(access.wall ? accessEmail : `maya.ui+${Date.now()}@${EMAIL_DOMAIN}`);
 const o1 = await shot("1-company");
 check("step 1 fits a phone", o1 <= 1, `overflow ${o1}px`);
 await page.getByRole("button", { name: /continue/i }).click();
 if (access.wall) {
-  await page.waitForURL(/\/questions$/, { timeout: 30000 });
-  check("the company step carries straight on to questions with Google sign-in", new URL(page.url()).pathname === "/questions");
+  await page.waitForURL(atPage("/questions"), { timeout: 30000 });
+  check("the company step carries straight on to questions with Google sign-in", atPage("/questions")(new URL(page.url())));
 } else {
-  await page.waitForURL(/check-email/, { timeout: 30000 });
+  await page.waitForURL(atPage("/check-email"), { timeout: 30000 });
   // Step 2: the page waits, and carries on when the one-time link is opened elsewhere.
   const o2 = await shot("2-check-email");
   check("step 2 fits a phone", o2 <= 1, `overflow ${o2}px`);
@@ -82,11 +84,11 @@ if (access.wall) {
   check("local development shows the one-time link", !!href);
   const other = await ctx.newPage();
   await other.goto(`${APP}/verify?token=${new URL(href).searchParams.get("token")}`, { waitUntil: "networkidle" });
-  await other.waitForURL(/questions/, { timeout: 15000 }).catch(() => {});
-  check("opening the link lands on the questions", /questions/.test(other.url()), other.url());
+  await other.waitForURL(atPage("/questions"), { timeout: 15000 }).catch(() => {});
+  check("opening the link lands on the questions", atPage("/questions")(new URL(other.url())), other.url());
   await other.close();
-  await page.waitForURL(/questions/, { timeout: 15000 }).catch(() => {});
-  check("the waiting page carried on by itself", /questions/.test(page.url()), page.url());
+  await page.waitForURL(atPage("/questions"), { timeout: 15000 }).catch(() => {});
+  check("the waiting page carried on by itself", atPage("/questions")(new URL(page.url())), page.url());
 }
 
 // Step 3: a description becomes two questions; one can be edited.
@@ -106,7 +108,7 @@ await page.getByRole("button", { name: /^save/i }).click();
 await page.getByText("and where.").first().waitFor({ timeout: 10000 }).catch(() => {});
 check("a question's wording can be edited", (await page.getByText("and where.").count()) > 0);
 await page.getByRole("link", { name: /continue/i }).or(page.getByRole("button", { name: /continue/i })).first().click();
-await page.waitForURL(/name/, { timeout: 15000 });
+await page.waitForURL(atPage("/name"), { timeout: 15000 });
 
 // Step 4: a name of at most eight characters and one of ten faces.
 await page.getByLabel("Agent name").fill("Junojunojuno");
@@ -119,7 +121,7 @@ await page.getByRole("button", { name: /^face 3/i }).click();
 const o4 = await shot("4-name");
 check("step 4 fits a phone", o4 <= 1, `overflow ${o4}px`);
 await page.getByRole("button", { name: /build my agent/i }).click();
-await page.waitForURL(/built/, { timeout: 15000 });
+await page.waitForURL(atPage("/built"), { timeout: 15000 });
 
 // Step 5, then the call screen.
 await page.waitForTimeout(3500);
@@ -128,7 +130,7 @@ check("the built screen names the agent and has no payroll", /juno/i.test(body5)
 const o5 = await shot("5-built");
 check("step 5 fits a phone", o5 <= 1, `overflow ${o5}px`);
 await page.getByRole("link", { name: /take a test call/i }).or(page.getByRole("button", { name: /take a test call/i })).first().click();
-await page.waitForURL(/call/, { timeout: 15000 });
+await page.waitForURL(atPage("/call"), { timeout: 15000 });
 await page.locator('[data-testid="candidate-start"]').waitFor({ timeout: 60000 });
 await page.waitForTimeout(1500);
 const layout = await page.evaluate(() => {
