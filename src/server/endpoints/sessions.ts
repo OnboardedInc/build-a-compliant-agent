@@ -181,6 +181,9 @@ function journeyOf(row: Row, work: Work, hire: HireRecord | null, named: string)
   const offered = work.offer?.state === "accepting" ? "offered" : work.offer?.state;
   const offer: Journey["offer"] = hire ? "accepted" : (offered ?? "none");
   const placementDone = forms.filter((f) => f.state === "done").length;
+  // Only some accounts' forms have a part for the employer. Nothing here may promise one that is not there.
+  const employerPart = forms.some((f) => work.ctx.forms[f.formId]?.sections.some((x) => x.side === "employer"));
+  const theirs = employerPart ? `, ${employer}'s part included` : "";
   const ready = hire?.readyAt != null;
   const stage: JourneyStage = !hire
     ? offer === "none" ? "screen" : "offer"
@@ -226,8 +229,8 @@ function journeyOf(row: Row, work: Work, hire: HireRecord | null, named: string)
       detail: ready
         ? "Every form on the placement is complete"
         : startDay
-          ? `When every form due before ${shortDay(startDay).split(", ")[1] ?? startDay} is done, ${employer}'s part included`
-          : `When every form is done, ${employer}'s part included`,
+          ? `When every form due before ${shortDay(startDay).split(", ")[1] ?? startDay} is done${theirs}`
+          : `When every form is done${theirs}`,
     },
   ];
   return {
@@ -236,6 +239,7 @@ function journeyOf(row: Row, work: Work, hire: HireRecord | null, named: string)
     offer,
     forms,
     mine,
+    employerPart,
   };
 }
 
@@ -481,11 +485,15 @@ async function speakOfProgress(c: Context, row: Row, hire: HireRecord, work: Wor
     .run();
   const latest = fresh.length === 0 ? "that form" : fresh.length === 1 ? fresh[0] : `${fresh.slice(0, -1).join(", ")} and ${fresh.at(-1)}`;
   const allDone = left === 0;
+  // The employer has steps of its own only when a form has a part for them and it is still open.
+  const theirsOpen = (hire.tasks ?? []).some((t) => t.status !== "completed" && (work.ctx.forms[t.formId]?.sections.some((x) => x.side === "employer") ?? false));
   const words = allDone
-    ? `That's the last one${first ? `, ${first}` : ""}. You're all set for now. ${employer} confirms your start once it has finished its own steps. Any questions before we hang up?`
+    ? theirsOpen
+      ? `That's the last one${first ? `, ${first}` : ""}. You're all set for now. ${employer} confirms your start once it has finished its own steps. Any questions before we hang up?`
+      : `That's the last one${first ? `, ${first}` : ""}. You're all set. ${employer} will confirm your start. Any questions before we hang up?`
     : `Got it, your ${latest} ${fresh.length > 1 ? "are" : "is"} in. ${left === 1 ? "One more to go." : `${left} more to go.`}`;
   const note = allDone
-    ? `[Onboarded] All ${mine.length} of the candidate's forms are done, and they have just been told so. ${employer} still has its own steps. Answer any questions, then close the call.`
+    ? `[Onboarded] All ${mine.length} of the candidate's forms are done, and they have just been told so. ${theirsOpen ? `${employer} still has its own steps. ` : "Nothing more is needed from them. "}Answer any questions, then close the call.`
     : `[Onboarded] The candidate finished ${latest}. ${done.length} of their ${mine.length} forms are done. They have just been told. Keep waiting silently.`;
   const started = Date.now();
   const controlUrl = call.controlUrl;

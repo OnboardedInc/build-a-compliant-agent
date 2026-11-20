@@ -379,7 +379,7 @@ function paperworkTools(server: { url: string; headers: Record<string, string>; 
       server,
       "read_form",
       "Read the onboarding form the candidate is filling in: which form is on their screen now, what each page says, the choices on it, and what they have entered so far (never sensitive values). Call it when they ask about a form or a field, or which form they are on.",
-      { form: { type: "string", description: "The form they asked about, if they named it (\"W-4\", \"I-9\"). Leave empty for the one they are on." } },
+      { form: { type: "string", description: "The form they asked about, if they named it (\"W-4\"). Leave empty for the one they are on." } },
       [],
       "Let me look at that form",
     ),

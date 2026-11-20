@@ -1034,7 +1034,7 @@ export async function refreshHire(
         "GET",
         `/tasks/${taskId}/onboarding?assignee_type=employer`,
         undefined,
-        { detail: "The employer's link for their part (I-9 Section 2)", result: () => "link created", returned: () => ["url: the employer's link (not logged)"] },
+        { detail: "The employer's link for their part of the form", result: () => "link created", returned: () => ["url: the employer's link (not logged)"] },
       );
       employerUrl = link.url ?? null;
     } catch {

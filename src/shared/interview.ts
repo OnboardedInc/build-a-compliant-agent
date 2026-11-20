@@ -239,6 +239,8 @@ export interface Journey {
   forms: AgentForm[];
   /** The candidate's own forms: done of total. */
   mine: { done: number; total: number };
+  /** True when a form on the placement has a part the employer completes (an I-9's Section 2, for one). */
+  employerPart: boolean;
 }
 export type InterviewStatus = "idle" | "live" | "ended" | "review" | "approving" | "approved" | "rejected";
 

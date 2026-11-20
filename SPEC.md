@@ -21,7 +21,7 @@ The call itself, in order:
 4. Screening question 1, then screening question 2 (the visitor's own).
 5. The agent calls `request_offer`. At a fit score of 80 or above it makes the offer, naming the start date. Under 80 it closes politely and the watch view shows "Approve offer".
 6. On "yes" the agent calls `start_paperwork`: the hire is created in Onboarded and its hosted onboarding page opens on the candidate's screen, under the call. The agent waits silently, answers questions about a form by reading it (`read_form`), and says when each form is done.
-7. When the candidate's forms are done the agent says so, takes any last question and ends the call. The watch view's last step is **Ready** (every form done, the employer's part included). There is no payroll step anywhere.
+7. When the candidate's forms are done the agent says so, takes any last question and ends the call. The watch view's last step is **Ready** (every form done, the employer's part included when a form has one). There is no payroll step anywhere.
 
 There is no email question, no start-date question and no `check_start_date` tool: the offered start date is fixed when the session is made (`offeredStartFrom(today)`) and written to the facts then, so the call reaches the offer quickly.
 
@@ -200,6 +200,6 @@ Validation errors from the server show under their field. Loading states on ever
   - **The forms panel is the big one**: it takes all the height that is left (`flex: 1`), with roomy rows. Once the offer is accepted, "Steps 1 and 2" collapses to one black line (score, the two topic scores, "Offer accepted").
   - **The transcript is a small strip fixed at the bottom** of the main column, about 104px tall, showing the latest lines and scrolling inside itself. It never grows.
   - **The API feed has no panel behind it**: a navy header strip (wordmark, "API", a green "Live" dot), a count line ("14 calls to Onboarded's public API · newest first"), then plain white cards with a 1px border, newest first. A new card slides in; no card stays highlighted.
-  - The step-4 note under the table: "Ready for work when every form is done, the employer's part of the I-9 included", with the link to the employer's part when the session has one (`hire.employerUrl`).
+  - The step-4 note under the table: "Ready for work when every form is done", with "<company>'s part included" added only when a form on the placement has a part for the employer (`journey.employerPart`), and the link to the employer's part when the session has one (`hire.employerUrl`).
 - The right side reads only: `status`, `journey`, `criteria`, `score`, `job.threshold`, `transcript`, `api`, `hire`, `callSeconds`, `candidate.first`, `company`, `agentName`, `error`.
 - Below 1100px wide the API feed drops under the main column; below 760px the phone comes first and the right side follows.

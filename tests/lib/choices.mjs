@@ -15,6 +15,9 @@ export const CHOICES = {
   "form.mvr_license_state": "CA",
   "form.mvr_license_class": "C",
   "form.mvr_license_expiration": "2029-08-31",
+  // Forklift certification (the Chicago role operates a forklift). Fictional trainer.
+  "form.forklift_truck_class": "Sit-down counterbalance",
+  "form.forklift_trainer_name": "Jordan Lee",
   // Employer's part (Section 2).
   "form.i_9_reviewer_confirm_details_status": "Yes",
   "form.i_9_reviewer_complete_certification": "Yes",

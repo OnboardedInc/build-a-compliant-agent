@@ -172,7 +172,7 @@ export const formAppHtml = (): string => `<!doctype html>
       el("wait").hidden = true;
       el("set").hidden = false;
       el("set-title").textContent = "You're all set for now" + (data.candidateFirst ? ", " + data.candidateFirst : "");
-      el("set-text").textContent = (data.employer || "Your employer") + " confirms your start once it has finished its own steps. They may reach out if they need anything more from you.";
+      el("set-text").textContent = (data.employer || "Your employer") + " will confirm your start. They may reach out if they need anything more from you.";
       el("shift").hidden = !data.startDay;
       el("shift-day").textContent = data.startDay || "";
       el("shift-site").textContent = data.site || "";

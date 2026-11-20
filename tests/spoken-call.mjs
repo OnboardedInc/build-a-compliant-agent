@@ -288,7 +288,10 @@ if (accepted) {
     const text = hosted ? await frameAt().locator("body").innerText().catch(() => "") : "";
     const s = await session();
     const now = s.journey.forms.find((f) => f.now) ?? null;
-    return { text, now, forms: s.journey.forms, agree: !!now && bare(text.slice(0, 600)).includes(mark(now.name)) };
+    // The page prints the form's full name ("Forklift Operator Certification"), the session its short one ("Forklift certification").
+    const top = bare(text.slice(0, 600));
+    const sameForm = !!now && (top.includes(mark(now.name)) || now.name.split(/[^A-Za-z0-9]+/).filter(Boolean).every((word) => top.includes(bare(word))));
+    return { text, now, forms: s.journey.forms, agree: sameForm };
   };
   /** Asks Ava which form is on screen and checks her answer against Onboarded's page. */
   const askWhich = async (label) => {
@@ -296,8 +299,9 @@ if (accepted) {
     const n = (await transcript()).length;
     await say("which");
     let reply = await hearAva(n, 40000);
-    // Her holding line can arrive in two pieces ("Let me check which form is" / "for you."): wait for the answer itself.
-    for (let i = 0; i < 3 && reply && !/\bform\b.*\b(now|right now|screen)\b|you are on|you're on/i.test(reply); i += 1) {
+    // Her holding line can arrive in two pieces ("Let me check which form is" / "for you."), and can itself say
+    // "form" and "screen" ("which form is on your screen"): wait for the answer itself.
+    for (let i = 0; i < 3 && reply && !/\bform\b.*\bnow\b|you are on|you're on/i.test(reply); i += 1) {
       const more = await hearAva((await transcript()).length, 12000);
       if (!more) break;
       reply = `${reply} ${more}`;
@@ -419,7 +423,7 @@ if (accepted) {
     const during = (await transcript()).slice(quietFrom).filter((l) => l.who === "ai").map((l) => l.text);
     const announcements = during.filter((t) => /(is|are) in\.|all set|last (one|1)/i.test(t));
     // Her announcements arrive in the transcript a sentence at a time.
-    unprompted = during.filter((t) => !/(is|are) in\.|all set|last (one|1)|more to go|hang up|confirms your start|^got it[.,]?$/i.test(t.trim()));
+    unprompted = during.filter((t) => !/(is|are) in\.|all set|last (one|1)|more to go|hang up|confirms? your start|^got it[.,]?$/i.test(t.trim()));
     // What she said in answer to a question or after a pause is not unprompted.
     unprompted = unprompted.filter((t) => !prompted.some((p) => bare(p).includes(bare(t))));
     check("the form stayed where it was while Ava's caption changed", new Set(tops).size === 1, `form top at ${[...new Set(tops)].join(", ")}px over ${tops.length} readings`);
