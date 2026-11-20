@@ -94,6 +94,20 @@ export const PERSONAL_EMAIL_DOMAINS: ReadonlySet<string> = new Set([
   "mailinator.com", "guerrillamail.com", "10minutemail.com", "tempmail.com", "sharklasers.com", "yopmail.com",
 ]);
 
+/**
+ * The listed domain an address is at: the domain itself, or a listed domain it is a
+ * sub-domain of ("mail.gmail.com" is at "gmail.com"). Null when it is at none. An ending of
+ * one label, such as "com", is never looked up.
+ */
+export function domainListed(list: ReadonlySet<string>, input: string): string | null {
+  const labels = input.trim().toLowerCase().split(".").filter(Boolean);
+  for (let i = 0; i + 2 <= labels.length; i++) {
+    const candidate = labels.slice(i).join(".");
+    if (list.has(candidate)) return candidate;
+  }
+  return null;
+}
+
 /** Null when the address is a usable work email, else what to tell the visitor. */
 export function workEmailProblem(input: string): string | null {
   const email = input.trim().toLowerCase();

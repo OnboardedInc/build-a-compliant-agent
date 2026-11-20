@@ -9,6 +9,7 @@ import { DEFAULT_BRAND } from "../shared/builder";
 import { secretMatches, redactData } from "./services/security";
 import { SESSION_COOKIE, sessionReady, wallOn } from "./services/access";
 import { notHuman } from "./services/turnstile";
+import { personalEmailProblem } from "./services/emailDomains";
 
 export interface Bindings {
   DB: D1Database;
@@ -68,6 +69,9 @@ app.get("/api/health", (c) => c.json({ status: "ok" }));
 app.post("/api/brand/preview", async (c) => {
   const body = await c.req.json<Record<string, unknown>>();
   const domain = typeof body?.website === "string" ? safeDomain(body.website) : null;
+  // The redesigned first screen looks the company up from the work email, and says here that a personal address will not do.
+  const personal = typeof body?.email === "string" && !wallOn(c.env) ? personalEmailProblem(body.email) : null;
+  if (personal) return c.json({ error: "Check the highlighted fields.", errors: [{ field: "email", message: personal }] }, 400);
   // A lookup can cost a brand.dev request, and anyone can ask for one.
   const refused = domain ? await notHuman(c, "lookup") : null;
   if (refused) return refused;

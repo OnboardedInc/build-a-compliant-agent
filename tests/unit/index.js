@@ -5,3 +5,4 @@ import "./turnstile.test.mjs";
 import "./call.test.mjs";
 import "./limits.test.mjs";
 import "./notify.test.mjs";
+import "./emailDomains.test.mjs";

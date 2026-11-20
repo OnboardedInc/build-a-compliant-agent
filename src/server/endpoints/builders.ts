@@ -1,4 +1,5 @@
 import { notHuman } from "../services/turnstile";
+import { personalEmailProblem } from "../services/emailDomains";
 import { announceBuiltAgent } from "../services/notify";
 import { MAX_AGENTS_PER_ADDRESS, MAX_REWRITES_PER_DAY, addressKey, countUse, countedAddress } from "../services/limits";
 import { Hono, type MiddlewareHandler } from "hono";
@@ -77,7 +78,7 @@ builders.post("/builders", async (c) => {
   const company = value(body?.company);
   const website = safeDomain(value(body?.website));
   const errors: FieldError[] = [];
-  const emailError = internal ? (suppliedEmail && suppliedEmail !== signedInEmail ? `Use the Google address you signed in with: ${signedInEmail}.` : null) : workEmailProblem(email);
+  const emailError = internal ? (suppliedEmail && suppliedEmail !== signedInEmail ? `Use the Google address you signed in with: ${signedInEmail}.` : null) : workEmailProblem(email) ?? personalEmailProblem(email);
   if (emailError) errors.push({ field: "email", message: emailError });
   else if (email.length > 254) errors.push({ field: "email", message: "Enter a valid email address." });
   if (company.length < 2 || company.length > 80) errors.push({ field: "company", message: "Use 2 to 80 characters." });
