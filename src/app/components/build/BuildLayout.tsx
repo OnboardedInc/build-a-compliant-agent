@@ -5,7 +5,7 @@ import { Check, ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
 import { OnboardedIcon } from "../call/brand";
 
 export function SiteMark() {
-  return <div className="site-mark"><OnboardedIcon size={22} /><span>buildacompliantagent.com</span></div>;
+  return <div className="site-mark"><OnboardedIcon size={22} /><span>compliance.build</span></div>;
 }
 export function Stepper({ step }: { step: number }) {
   return <ol className="stepper" aria-label="Steps to build your agent">{["Company", "Email", "Questions", "Name"].map((label, i) => <li key={label} className={i + 1 <= step ? "reached" : ""} aria-current={i + 1 === step ? "step" : undefined}><span className="step-number">{i + 1 < step ? <Check size={12} strokeWidth={3.2} /> : i + 1}</span><span>{label}</span></li>)}</ol>;

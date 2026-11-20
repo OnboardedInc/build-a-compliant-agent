@@ -22,10 +22,10 @@
 	],
 	// The one-time email link is sent through Cloudflare Email Sending. `wrangler dev`
 	// simulates the send locally; a deployed Worker needs the sender's domain onboarded
-	// (`wrangler email sending enable buildacompliantagent.com`).
+	// (`wrangler email sending enable compliance.build`).
 	"send_email": [{ "name": "EMAIL" }],
 	"vars": {
-		"EMAIL_FROM": "hello@buildacompliantagent.com",
-		"SITE_NAME": "buildacompliantagent.com"
+		"EMAIL_FROM": "hello@compliance.build",
+		"SITE_NAME": "compliance.build"
 	}
 }
