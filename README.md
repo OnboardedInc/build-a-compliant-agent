@@ -53,6 +53,7 @@ Set in `.dev.vars` locally and as wrangler secrets when deployed. `.dev.vars.exa
 | `DEV_SHOW_VERIFY_LINK` | local only | `1` shows the one-time link on the page. Never set it on a deployed Worker. |
 | `SHOW_EMPLOYER_LINK` | no | `1` shows the employer's I-9 Section 2 link in the recruiter panel. Off by default, because the link opens the employer side of the shared Onboarded account to every visitor. |
 | `ACCESS_GOOGLE_DOMAIN` | no | Turns the sign-in wall on: only Google accounts at this domain can use the site. Unset locally. |
+| `EMAIL_CONFIRMATION` | no | `off` skips the one-time confirmation link, so a new visitor carries straight on. Use it only on a Worker that cannot send mail: the work email is then not checked. |
 | `GOOGLE_CLIENT_ID` | with the wall | The Google OAuth web client the sign-in button uses |
 | `SESSION_SECRET` | with the wall | Signs the session cookie. At least 32 random characters. |
 

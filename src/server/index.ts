@@ -21,6 +21,8 @@ export interface Bindings {
   BRAND_DEV_API_KEY?: string;
   ADMIN_TOKEN?: string;
   ACCESS_GOOGLE_DOMAIN?: string;
+  /** "off" skips the one-time confirmation link: a new builder is confirmed at once. For a Worker with no way to send mail. */
+  EMAIL_CONFIRMATION?: string;
   GOOGLE_CLIENT_ID?: string;
   SESSION_SECRET?: string;
   DEV_SHOW_VERIFY_LINK?: string;

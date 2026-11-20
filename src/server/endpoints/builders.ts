@@ -65,6 +65,8 @@ export const builders = new Hono<AppEnv>();
 builders.post("/builders", async (c) => {
   const body = await c.req.json<Record<string, unknown>>();
   const internal = wallOn(c.env);
+  // No confirmation mail when the visitor is signed in with Google, or when EMAIL_CONFIRMATION is "off" (a Worker that cannot send mail).
+  const noMail = internal || c.env.EMAIL_CONFIRMATION === "off";
   const signedInEmail = c.get("accessEmail");
   if (internal && !signedInEmail) return c.json({ error: "Unauthorized" }, 401);
   const suppliedEmail = value(body?.email).toLowerCase();
@@ -81,19 +83,19 @@ builders.post("/builders", async (c) => {
   // The public flow limits emails sent; the internal flow sends no verification mail.
   if (!internal) {
     const recent = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM builders WHERE email = ? AND created_at > ?").bind(email, new Date(Date.now() - 86_400_000).toISOString()).first<{ n: number }>();
-    if ((recent?.n ?? 0) >= MAX_STARTS_PER_EMAIL) return c.json({ error: "A link was already sent to this address today. Open it, or try again tomorrow." }, 429);
+    if ((recent?.n ?? 0) >= MAX_STARTS_PER_EMAIL) return c.json({ error: noMail ? "That address has started three agents today. Try again tomorrow." : "A link was already sent to this address today. Open it, or try again tomorrow." }, 429);
   }
   const at = now();
   const id = `bld_${nanoid(12)}`;
   const token = nanoid(32);
-  const verifyToken = internal ? null : nanoid(32);
+  const verifyToken = noMail ? null : nanoid(32);
   const brand = await brandFor(website!, c.env);
   await c.env.DB.prepare(`INSERT INTO builders
     (id, token, email, company, website, brand, verify_token, verify_sent_at, verified_at, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-    .bind(id, token, email, company, website, JSON.stringify(brand), verifyToken, internal ? null : at, internal ? at : null, at, at).run();
+    .bind(id, token, email, company, website, JSON.stringify(brand), verifyToken, noMail ? null : at, noMail ? at : null, at, at).run();
   const row = (await read(c, id))!;
-  const emailSent = internal ? false : await sendVerification(c.env, email, await verificationUrl(c, row));
+  const emailSent = noMail ? false : await sendVerification(c.env, email, await verificationUrl(c, row));
   return c.json({ token, builder: await view(c, row), emailSent } satisfies StartResponse & { emailSent: boolean }, 201);
 });
 builders.post("/verify", async (c) => {
