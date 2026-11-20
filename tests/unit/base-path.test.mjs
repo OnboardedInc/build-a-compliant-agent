@@ -38,6 +38,6 @@ test("prefixed mode dispatches the SPA, both API paths, old links, and root page
   for (const path of ["/check-email", "/verify", "/questions", "/name", "/built", "/call", "/sign-in", "/i/example", "/Call/"]) {
     assert.deepEqual(route(base, path), { kind: "redirect", to: `${base}${path}`, status: 302 });
   }
-  assert.deepEqual(route(base, "/"), { kind: "root", status: 200 });
+  assert.deepEqual(route(base, "/"), { kind: "redirect", to: `${base}/`, status: 302 });
   for (const path of ["/nothing-here", "/i/", "/i/example/extra", `${base}-old/questions`]) assert.deepEqual(route(base, path), { kind: "root", status: 404 });
 });

@@ -120,9 +120,14 @@ app.onError((error, c) => {
 });
 export default {
   async fetch(request: Request, env: Bindings, ctx: ExecutionContext): Promise<Response> {
+    const url = new URL(request.url);
+    // The site has one address: www goes to the bare domain, path and query kept.
+    if (url.hostname.startsWith("www.")) {
+      url.hostname = url.hostname.slice(4);
+      return new Response(null, { status: 301, headers: { Location: url.toString() } });
+    }
     const base = basePath(env.BASE_PATH);
     if (!base) return app.fetch(request, env, ctx);
-    const url = new URL(request.url);
     const target = route(base, url.pathname);
     if (target.kind === "hono") return app.fetch(request, env, ctx);
     if (target.kind === "redirect") return new Response(null, { status: target.status, headers: { Location: `${target.to}${url.search}` } });

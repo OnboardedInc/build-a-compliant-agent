@@ -17,7 +17,7 @@ type Route =
   | { kind: "app-api"; path: string }
   | { kind: "app-page" }
   | { kind: "redirect"; to: string; status: 302 | 308 }
-  | { kind: "root"; status: 200 | 404 };
+  | { kind: "root"; status: 404 };
 
 // The root now belongs to the host. Only named routes from the old SPA move with it.
 const oldPage = /^\/(?:check-email|verify|questions|name|built|call|sign-in|i\/[^/]+)\/*$/i;
@@ -29,5 +29,9 @@ export function route(base: string, pathname: string): Route {
   if (path !== null) return path.startsWith("/api/") ? { kind: "app-api", path } : { kind: "app-page" };
   if (pathname.startsWith("/api/")) return { kind: "hono" };
   if (oldPage.test(pathname)) return { kind: "redirect", to: withBase(base, pathname), status: 302 };
-  return { kind: "root", status: pathname === "/" ? 200 : 404 };
+  // For now the host's home page is the app's first screen: "/" goes to the app. The redirect is
+  // temporary (302) so the root can become a page of its own later. Anything else at the root
+  // is not a page: the Coming Soon page answers it as a 404.
+  if (pathname === "/") return { kind: "redirect", to: `${base}/`, status: 302 };
+  return { kind: "root", status: 404 };
 }

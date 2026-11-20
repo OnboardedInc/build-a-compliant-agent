@@ -36,7 +36,7 @@ One Worker serves the API and the SPA. All configuration is env (`.dev.vars`, wr
 
 ## Base path
 
-- **The default is the root.** An unset or empty `BCA_BASE_PATH` serves the app at `/`. With `BCA_BASE_PATH=/hiring-agent`, the app, assets and API live under `/hiring-agent/`, and `/` serves Coming Soon. Root `/api/...` requests still reach Hono.
+- **The default is the root.** An unset or empty `BCA_BASE_PATH` serves the app at `/`. With `BCA_BASE_PATH=/hiring-agent`, the app, assets and API live under `/hiring-agent/`, and `/` redirects to the app for now (302; the Coming Soon page only answers unknown root paths as a 404). `www.` redirects to the bare domain. Root `/api/...` requests still reach Hono.
 - **Deploy uses one setting for both parts.** `npm run deploy` passes the same `BCA_BASE_PATH` to the SPA build and the generated Worker's `BASE_PATH` var. Set `BCA_SITE_DOMAIN` to a hostname to add it as a custom domain in the generated config.
 - **Preview on port 8790.** `npm run preview:base` serves `/hiring-agent/` with the same local D1 state as `npm run dev:worker`. The browser tests accept `BASE_URL=http://localhost:8790/hiring-agent`.
 - **Keep the Turnstile hostname list to hostnames and the Vapi tunnel URL to its HTTPS origin.** The Worker appends the base path to app URLs.

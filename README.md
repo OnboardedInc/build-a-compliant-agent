@@ -96,7 +96,7 @@ A deployed Worker needs no tunnel: Vapi posts to the Worker's own address.
 
 ### Serve the app under a path
 
-Leave `BCA_BASE_PATH` unset or empty to serve the app at `/`. Set `BCA_BASE_PATH=/hiring-agent` to serve the app, its assets and its API under `/hiring-agent/` and the Coming Soon page at `/`. Existing `/api/...` callers still work. `npm run deploy` uses the same `BCA_BASE_PATH` for the SPA build and the Worker's generated `BASE_PATH` var. Set `BCA_SITE_DOMAIN` to a hostname to add it as a custom domain in the generated config.
+Leave `BCA_BASE_PATH` unset or empty to serve the app at `/`. Set `BCA_BASE_PATH=/hiring-agent` to serve the app, its assets and its API under `/hiring-agent/`. For now `/` redirects to the app (a temporary redirect, until the host has a home page of its own), and the Coming Soon page answers any other root path as a 404. `www.` on any host redirects to the bare domain, and `BCA_SITE_DOMAIN` attaches both. Existing `/api/...` callers still work. `npm run deploy` uses the same `BCA_BASE_PATH` for the SPA build and the Worker's generated `BASE_PATH` var. Set `BCA_SITE_DOMAIN` to a hostname to add it as a custom domain in the generated config.
 
 Run `npm run preview:base` and open `http://localhost:8790/hiring-agent/`. The preview uses the same local D1 state as `npm run dev:worker`. The browser tests accept `BASE_URL=http://localhost:8790/hiring-agent`.
 
