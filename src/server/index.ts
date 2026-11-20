@@ -8,6 +8,7 @@ import { brandFor, safeDomain } from "./services/brand";
 import { DEFAULT_BRAND } from "../shared/builder";
 import { secretMatches, redactData } from "./services/security";
 import { SESSION_COOKIE, sessionReady, wallOn } from "./services/access";
+import { notHuman } from "./services/turnstile";
 
 export interface Bindings {
   DB: D1Database;
@@ -24,6 +25,11 @@ export interface Bindings {
   /** "off" skips the one-time confirmation link: a new builder is confirmed at once. For a Worker with no way to send mail. */
   EMAIL_CONFIRMATION?: string;
   GOOGLE_CLIENT_ID?: string;
+  /** Cloudflare Turnstile. With the secret and the site key set, the company lookup and starting an agent need a fresh token. Unset, nothing is checked. */
+  TURNSTILE_SECRET?: string;
+  TURNSTILE_SITE_KEY?: string;
+  /** The site's own hostnames, comma-separated. A token made on any other page is refused. */
+  TURNSTILE_HOSTNAMES?: string;
   SESSION_SECRET?: string;
   DEV_SHOW_VERIFY_LINK?: string;
   /** "1" sends the employer's I-9 Section 2 link to the browser. Off by default. */
@@ -41,7 +47,7 @@ app.use("/api/*", async (c, next) => {
   c.header("Referrer-Policy", "no-referrer");
   await next();
   if (c.res.headers.get("Content-Type")?.includes("application/json")) {
-    const secrets = [c.env.ONBOARDED_API_KEY, c.env.VAPI_PRIVATE_KEY, c.env.ADMIN_TOKEN, c.env.BRAND_DEV_API_KEY, c.env.SESSION_SECRET, getCookie(c, SESSION_COOKIE), c.res.headers.get("Set-Cookie")?.match(/^__Host-bca_auth=([^;]+)/)?.[1], c.get("builder")?.token, c.req.header("x-bca-tool-secret"), ...(c.req.path.startsWith("/api/mcp/") ? [c.req.header("Authorization")?.replace(/^Bearer\s+/i, "")] : [])];
+    const secrets = [c.env.ONBOARDED_API_KEY, c.env.VAPI_PRIVATE_KEY, c.env.ADMIN_TOKEN, c.env.BRAND_DEV_API_KEY, c.env.SESSION_SECRET, c.env.TURNSTILE_SECRET, getCookie(c, SESSION_COOKIE), c.res.headers.get("Set-Cookie")?.match(/^__Host-bca_auth=([^;]+)/)?.[1], c.get("builder")?.token, c.req.header("x-bca-tool-secret"), ...(c.req.path.startsWith("/api/mcp/") ? [c.req.header("Authorization")?.replace(/^Bearer\s+/i, "")] : [])];
     const data: unknown = await c.res.clone().json();
     c.res = new Response(JSON.stringify(redactData(data, secrets)), { status: c.res.status, headers: c.res.headers });
   }
@@ -60,6 +66,9 @@ app.get("/api/health", (c) => c.json({ status: "ok" }));
 app.post("/api/brand/preview", async (c) => {
   const body = await c.req.json<Record<string, unknown>>();
   const domain = typeof body?.website === "string" ? safeDomain(body.website) : null;
+  // A lookup can cost a brand.dev request, and anyone can ask for one.
+  const refused = domain ? await notHuman(c, "lookup") : null;
+  if (refused) return refused;
   return c.json(domain ? await brandFor(domain, c.env) : DEFAULT_BRAND);
 });
 app.route("/api", builders);

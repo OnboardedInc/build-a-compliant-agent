@@ -332,7 +332,8 @@ const vapiCall = (
 // -- Create ----------------------------------------------------------------------------------
 
 /** How many sessions one builder can make in 24 hours. */
-const MAX_SESSIONS_PER_DAY = 12;
+/** Test calls one agent can start in a day. Each one is a voice call and an employee in the shared Onboarded account. */
+const MAX_SESSIONS_PER_DAY = 10;
 
 /** Creates the Onboarded employee directly; the session is a frozen copy of the builder. */
 export async function createInterview(c: Context) {

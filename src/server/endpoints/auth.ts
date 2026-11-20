@@ -3,6 +3,7 @@ import { getCookie } from "hono/cookie";
 import type { AppContext, AppEnv } from "../index";
 import type { AccessState } from "../../shared/access";
 import { SESSION_COOKIE, clearSessionCookie, readSession, sessionCookie, sessionReady, signSession, verifyGoogleIdToken, wallOn, wallReady } from "../services/access";
+import { turnstileSiteKey } from "../services/turnstile";
 
 export async function accessEmail(c: AppContext): Promise<string | null> {
   if (!sessionReady(c.env)) return null;
@@ -11,8 +12,8 @@ export async function accessEmail(c: AppContext): Promise<string | null> {
   return email?.split("@")[1] === c.env.ACCESS_GOOGLE_DOMAIN!.trim().toLowerCase() ? email : null;
 }
 function state(c: AppContext, email: string | null): AccessState {
-  if (!wallOn(c.env)) return { wall: false, ready: true, clientId: null, domain: null, email: null };
-  return { wall: true, ready: wallReady(c.env), clientId: c.env.GOOGLE_CLIENT_ID?.trim() || null, domain: c.env.ACCESS_GOOGLE_DOMAIN!.trim().toLowerCase(), email };
+  if (!wallOn(c.env)) return { wall: false, ready: true, clientId: null, domain: null, email: null, turnstileSiteKey: turnstileSiteKey(c.env) };
+  return { wall: true, ready: wallReady(c.env), clientId: c.env.GOOGLE_CLIENT_ID?.trim() || null, domain: c.env.ACCESS_GOOGLE_DOMAIN!.trim().toLowerCase(), email, turnstileSiteKey: turnstileSiteKey(c.env) };
 }
 
 export const auth = new Hono<AppEnv>();

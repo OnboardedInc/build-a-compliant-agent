@@ -38,6 +38,15 @@ DEV_SHOW_VERIFY_LINK=1
 # Signs the session cookie. At least 32 random characters.
 # SESSION_SECRET=change-me-to-a-long-random-string
 
+# Cloudflare Turnstile (a check that the visitor is a person) on the company lookup and on starting
+# an agent. Leave all three unset locally: it is off and the tests run without it. On a deployed
+# Worker set all three (as wrangler secrets). With the secret set and no hostnames, every protected
+# request is refused.
+# TURNSTILE_SITE_KEY=your-widget-site-key
+# TURNSTILE_SECRET=your-widget-secret
+# The site's own hostnames, comma-separated. Never localhost on a deployed Worker.
+# TURNSTILE_HOSTNAMES=example.com
+
 # EMAIL_FROM and SITE_NAME are plain vars in wrangler.jsonc. A line here overrides them locally.
 # EMAIL_FROM=hello@example.com
 # SITE_NAME=example.com

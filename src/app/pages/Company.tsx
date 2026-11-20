@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Check, Loader2 } from "lucide-react";
 import { DEFAULT_BRAND, normalizeDomain, workEmailProblem, type Brand, type StartResponse } from "@shared/builder";
 import { apiFetch, readAccess } from "@/lib/api";
+import { humanHeaders } from "@/lib/human";
 import { useBuilder } from "@/lib/builder";
 import { useProblem } from "@/lib/useProblem";
 import { BuildLayout, FieldError, PageHeading, StartOver, StepFooter } from "@/components/build/BuildLayout";
@@ -40,7 +41,7 @@ export function Company() {
     if (!requested) { setFinding(false); setPreviewError(null); return; }
     const id = ++generation.current;
     setFinding(true); setPreviewError(null);
-    if (lookup.current?.domain !== requested) lookup.current = { domain: requested, promise: apiFetch<Brand>("/api/brand/preview", { method: "POST", body: JSON.stringify({ website: value }) }) };
+    if (lookup.current?.domain !== requested) lookup.current = { domain: requested, promise: humanHeaders("lookup").then(headers => apiFetch<Brand>("/api/brand/preview", { method: "POST", headers, body: JSON.stringify({ website: value }) })) };
     try {
       const found = await lookup.current.promise;
       if (id === generation.current && normalizeDomain(latestWebsite.current) === requested) setPreview({ domain: requested, brand: found });
@@ -50,6 +51,8 @@ export function Company() {
     } finally { if (id === generation.current) setFinding(false); }
   };
   useEffect(() => {
+    // An agent that already exists shows the brand it was built with: nothing is looked up again.
+    if (builder) return;
     const timer = setTimeout(() => { void findBrand(website); }, 600);
     return () => { clearTimeout(timer); generation.current += 1; };
   }, [website]);
@@ -64,7 +67,7 @@ export function Company() {
     if (invalidEmail) { document.getElementById("bca-email")?.focus(); return; }
     active.current = true; setPending(true);
     try {
-      const response = await apiFetch<StartResponse & { emailSent?: boolean }>("/api/builders", { method: "POST", body: JSON.stringify({ email, company, website }) });
+      const response = await apiFetch<StartResponse & { emailSent?: boolean }>("/api/builders", { method: "POST", headers: await humanHeaders("start"), body: JSON.stringify({ email, company, website }) });
       accept(response);
       navigate("/check-email", { state: { emailSent: response.emailSent } });
     } catch (reason) { problem.report(reason); }

@@ -1,3 +1,4 @@
+import { notHuman } from "../services/turnstile";
 import { Hono, type MiddlewareHandler } from "hono";
 import { nanoid } from "nanoid";
 import type { AppContext, AppEnv } from "../index";
@@ -51,7 +52,7 @@ async function view(c: AppContext, row: BuilderRow): Promise<BuilderView> {
     ...(c.env.DEV_SHOW_VERIFY_LINK === "1" && row.verify_token && /^(localhost|127\.0\.0\.1|\[::1\])$/.test(new URL(c.req.url).hostname) ? { devVerifyUrl: await verificationUrl(c, row) } : {}),
   };
 }
-/** How many times a day one email address can be sent a link, across every start. */
+/** How many agents one email address can start in a day. */
 const MAX_STARTS_PER_EMAIL = 3;
 
 /**
@@ -80,6 +81,8 @@ builders.post("/builders", async (c) => {
   if (company.length < 2 || company.length > 80) errors.push({ field: "company", message: "Use 2 to 80 characters." });
   if (!website) errors.push({ field: "website", message: "Enter a public company domain." });
   if (errors.length) return problem(c, errors);
+  const refused = await notHuman(c, "start");
+  if (refused) return refused;
   // The public flow limits emails sent; the internal flow sends no verification mail.
   if (!internal) {
     const recent = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM builders WHERE email = ? AND created_at > ?").bind(email, new Date(Date.now() - 86_400_000).toISOString()).first<{ n: number }>();
