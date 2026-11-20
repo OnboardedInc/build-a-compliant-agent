@@ -57,7 +57,7 @@ Set in `.dev.vars` locally and as wrangler secrets when deployed. `.dev.vars.exa
 | `TURNSTILE_SITE_KEY` | no | Cloudflare Turnstile's public site key. With it and `TURNSTILE_SECRET` set, the company lookup and starting an agent need a fresh token (a check that the visitor is a person). Unset locally. |
 | `TURNSTILE_SECRET` | with Turnstile | The widget's secret. The Worker sends each token to Cloudflare's Siteverify with it. |
 | `TURNSTILE_HOSTNAMES` | with Turnstile | The site's own hostnames, comma-separated. A token made on any other page is refused, and with none listed every protected request is refused. |
-| `SLACK_WEBHOOK_URL` | no | A Slack incoming webhook. Each agent a visitor finishes building is posted to that channel: who built it, the company, the agent and its two questions. |
+| `SLACK_WEBHOOK_URL` | no | A Slack incoming webhook. Each agent a visitor finishes building on the site's own domain (`SITE_NAME`) is posted to that channel: who built it, the company, the agent and its two questions. Agents built at the workers.dev address or locally are not posted. |
 | `GOOGLE_CLIENT_ID` | with the wall | The Google OAuth web client the sign-in button uses |
 | `SESSION_SECRET` | with the wall | Signs the session cookie. At least 32 random characters. |
 

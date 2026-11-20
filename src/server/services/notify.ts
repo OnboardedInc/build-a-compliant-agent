@@ -27,12 +27,16 @@ export function builtAgentMessage(siteName: string, agent: BuiltAgent): string {
 
 /**
  * Posts the built agent to the Slack channel behind SLACK_WEBHOOK_URL (a Slack incoming
- * webhook). Without the secret nothing is sent. A failed post is dropped: telling the team
+ * webhook). Without the secret nothing is sent, and nothing is sent for an agent built on
+ * any host but the site's own domain (SITE_NAME). A failed post is dropped: telling the team
  * never gets in the visitor's way.
  */
-export async function announceBuiltAgent(env: Pick<Bindings, "SLACK_WEBHOOK_URL" | "SITE_NAME">, agent: BuiltAgent, fetcher: typeof fetch = fetch): Promise<boolean> {
+export async function announceBuiltAgent(env: Pick<Bindings, "SLACK_WEBHOOK_URL" | "SITE_NAME">, agent: BuiltAgent, host: string, fetcher: typeof fetch = fetch): Promise<boolean> {
   const url = env.SLACK_WEBHOOK_URL?.trim();
   if (!url || !url.startsWith("https://hooks.slack.com/")) return false;
+  // Only agents built on the site's own domain are told to the channel: the same Worker also
+  // answers at its workers.dev address and on localhost, and those are not signups to follow up.
+  if (host.trim().toLowerCase() !== env.SITE_NAME.trim().toLowerCase()) return false;
   try {
     const response = await fetcher(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: builtAgentMessage(env.SITE_NAME, agent) }), signal: AbortSignal.timeout(8000) });
     return response.ok;

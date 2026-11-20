@@ -195,7 +195,7 @@ builders.post("/me/build", confirmed, async (c) => {
       email: saved.email, contactName: contact?.name, contactTitle: contact?.title, company: saved.company, website: saved.website,
       primary: brand.primary, secondary: brand.secondary, agentName: saved.agent_name, agentFace: saved.agent_face,
       jobTitle: saved.job_title, description: saved.description, questions: questionsOf(saved).map(question => question.question),
-    });
+    }, new URL(c.req.url).hostname);
   })());
   return c.json(await view(c, saved));
 });

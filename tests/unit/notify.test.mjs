@@ -23,17 +23,27 @@ test("a builder with no name or job title on file is still announced", () => {
 test("nothing is sent without a Slack webhook, or to an address that is not Slack's", async () => {
   let calls = 0;
   const fetcher = async () => { calls += 1; return new Response("ok"); };
-  assert.equal(await announceBuiltAgent({ SITE_NAME: "example.com" }, agent, fetcher), false);
-  assert.equal(await announceBuiltAgent({ SITE_NAME: "example.com", SLACK_WEBHOOK_URL: "https://example.org/hook" }, agent, fetcher), false);
+  assert.equal(await announceBuiltAgent({ SITE_NAME: "example.com" }, agent, "example.com", fetcher), false);
+  assert.equal(await announceBuiltAgent({ SITE_NAME: "example.com", SLACK_WEBHOOK_URL: "https://example.org/hook" }, agent, "example.com", fetcher), false);
   assert.equal(calls, 0);
 });
 
 test("the message is posted to the webhook, and a failure is swallowed", async () => {
   let sent;
   const env = { SITE_NAME: "example.com", SLACK_WEBHOOK_URL: "https://hooks.slack.com/services/example" };
-  assert.equal(await announceBuiltAgent(env, agent, async (url, init) => { sent = { url, body: JSON.parse(init.body) }; return new Response("ok"); }), true);
+  assert.equal(await announceBuiltAgent(env, agent, "Example.com", async (url, init) => { sent = { url, body: JSON.parse(init.body) }; return new Response("ok"); }), true);
   assert.equal(sent.url, env.SLACK_WEBHOOK_URL);
   assert.match(sent.body.text, /New agent built/);
-  assert.equal(await announceBuiltAgent(env, agent, async () => new Response("no", { status: 500 })), false);
-  assert.equal(await announceBuiltAgent(env, agent, async () => { throw new Error("network"); }), false);
+  assert.equal(await announceBuiltAgent(env, agent, "example.com", async () => new Response("no", { status: 500 })), false);
+  assert.equal(await announceBuiltAgent(env, agent, "example.com", async () => { throw new Error("network"); }), false);
+});
+
+test("an agent built anywhere but the site's own domain is not posted", async () => {
+  let calls = 0;
+  const fetcher = async () => { calls += 1; return new Response("ok"); };
+  const env = { SITE_NAME: "example.com", SLACK_WEBHOOK_URL: "https://hooks.slack.com/services/example" };
+  for (const host of ["my-worker.someone.workers.dev", "localhost", "www.example.com", "example.com.evil.test", ""]) assert.equal(await announceBuiltAgent(env, agent, host, fetcher), false, host);
+  assert.equal(calls, 0);
+  assert.equal(await announceBuiltAgent(env, agent, "example.com", fetcher), true);
+  assert.equal(calls, 1);
 });
