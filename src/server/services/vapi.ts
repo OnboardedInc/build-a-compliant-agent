@@ -5,7 +5,7 @@
 // Worker and waits for the result before she speaks.
 
 import {
-  MAX_CALL_SECONDS,
+  MAX_CONNECTED_SECONDS,
   longDay,
   type VoiceJoin,
 } from "../../shared/interview";
@@ -394,10 +394,11 @@ export function buildAva(a: AvaInput) {
     name: a.agentName,
     firstMessage: `Hi, I'm ${a.agentName}, the AI interviewer for ${a.employer}. This is a short screening for the ${a.jobTitle} job, and if it goes well we can do your new-hire paperwork on this same call. Ready?`,
     firstMessageMode: "assistant-speaks-first",
-    // Vapi ends the call at the limit, paused or not. The agent waits on the line while the
-    // candidate fills in forms, so silence does not end it sooner.
-    maxDurationSeconds: MAX_CALL_SECONDS,
-    silenceTimeoutSeconds: MAX_CALL_SECONDS,
+    // The page ends the call after twenty minutes that were not paused. This is the ceiling
+    // behind it, paused time included, which Vapi enforces itself. The agent waits on the line
+    // while the candidate fills in forms, so silence does not end the call sooner.
+    maxDurationSeconds: MAX_CONNECTED_SECONDS,
+    silenceTimeoutSeconds: MAX_CONNECTED_SECONDS,
     // Typing next to the microphone is not the candidate speaking.
     backgroundSpeechDenoisingPlan: { smartDenoisingPlan: { enabled: true } },
     backgroundSound: "off",

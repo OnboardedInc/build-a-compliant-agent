@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronsDownIcon, ChevronsUpIcon, Loader2, MicIcon, MicOffIcon, PauseIcon, PhoneOffIcon, PlayIcon } from "lucide-react";
-import { MAX_CALL_SECONDS, callClock, localToday, type CandidateInterview, type InterviewEvents, type JourneyStage, type VoiceJoin } from "@shared/interview";
+import { MAX_CALL_SECONDS, MAX_CONNECTED_SECONDS, callClock, localToday, type CandidateInterview, type InterviewEvents, type JourneyStage, type VoiceJoin } from "@shared/interview";
 import { useVoiceCall, type VoiceApi, type VoiceCall, type VoiceLine } from "./useVoiceCall";
 import { errorMessage } from "./useSession";
 import { AgentFace } from "../AgentFace";
@@ -108,14 +108,14 @@ export function AgentCall({ token, initial, onBusyChange }: { token: string; ini
     return () => { stopped = true; clearInterval(timer); };
   }, [every, read, report]);
 
-  const PAUSED = `The call is paused. ${info.agentName} cannot hear you. Press play to carry on.`;
+  const PAUSED = `The call is paused and the clock is stopped. ${info.agentName} cannot hear you. Press play to carry on.`;
   const face = (size = 108) => <AgentFace face={info.agentFace} size={size} head={info.brand.secondary} eye={info.brand.primary} />;
   const ava = voice.partial?.who === "ai" ? voice.partial.text : last.ai;
   const candidate = voice.partial?.who === "candidate" ? voice.partial.text : last.candidate;
   // Vapi reports the room closing as an error when Ava ends the call herself: once the call is
   // over that is not something to show the candidate.
   const callError = voice.active || voice.connecting || info.state === "ready" ? voice.error : null;
-  const error = notice ?? callError ?? voice.settingsError ?? (voice.limitReached ? `This test call reached its ${MAX_CALL_SECONDS / 60}-minute limit and ended.${info.formApp && !info.formApp.allSet ? " You can still finish the forms here." : ""}` : null);
+  const error = notice ?? callError ?? voice.settingsError ?? (voice.limitReached ? `${voice.limitReached === "time" ? `This test call reached its ${MAX_CALL_SECONDS / 60}-minute limit and ended.` : `This test call was connected for ${MAX_CONNECTED_SECONDS / 60} minutes, pauses included, and ended.`}${info.formApp && !info.formApp.allSet ? " You can still finish the forms here." : ""}` : null);
   const finished = !voice.active && !voice.connecting && (info.state === "done" || info.state === "offer");
   const done = () => { if (voice.active) voice.stop(); setClosed(true); };
   // The caption has a fixed height, so the form under it never moves: keep its newest words in view.

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type Vapi from "@vapi-ai/web";
 import type { InterviewEvents, InterviewMode, InterviewStatus, TranscriptLine, VoiceJoin, VoiceSettings } from "@shared/interview";
-import { endedAtLimit } from "@shared/interview";
+import { MAX_CALL_SECONDS, activeSeconds, endedAtLimit } from "@shared/interview";
 import { errorMessage } from "./useSession";
 
 /** What a call needs from its session: the studio's controller, or the candidate's own page. */
@@ -42,8 +42,15 @@ export function useVoiceCall(controller: VoiceLine, api: VoiceApi) {
   const [speaking, setSpeaking] = useState(false);
   const [muted, setMuted] = useState(false);
   const [paused, setPaused] = useState(false);
-  /** The last call was ended by the call length limit, not by anyone on it. */
-  const [limitReached, setLimitReached] = useState(false);
+  /**
+   * The last call was ended by a limit, not by anyone on it: "time" is twenty minutes on the
+   * call, "connected" is Vapi's ceiling on a call that was paused for a long while.
+   */
+  const [limitReached, setLimitReached] = useState<false | "time" | "connected">(false);
+  /** The call's clock stops while it is paused: time paused so far, and when the current pause began. */
+  const pausedMs = useRef(0);
+  const pausedSince = useRef<number | null>(null);
+  const ending = useRef(false);
   const [partial, setPartial] = useState<TranscriptLine | null>(null);
   const [seconds, setSeconds] = useState(session.callSeconds);
   const vapi = useRef<Vapi | null>(null);
@@ -91,7 +98,17 @@ export function useVoiceCall(controller: VoiceLine, api: VoiceApi) {
 
   useEffect(() => {
     if (!active) return;
-    const timer = setInterval(() => setSeconds(Math.floor((Date.now() - started.current) / 1000)), 250);
+    const timer = setInterval(() => {
+      const onCall = activeSeconds(Date.now(), started.current, pausedMs.current, pausedSince.current);
+      setSeconds(onCall);
+      const client = vapi.current;
+      if (onCall < MAX_CALL_SECONDS || ending.current || !client) return;
+      // Twenty minutes on the call: the agent says so and hangs up. If she cannot, the page does.
+      ending.current = true;
+      setLimitReached("time");
+      try { client.say("That is the twenty minute limit for a test call. Goodbye.", true); } catch { /* The page hangs up below. */ }
+      setTimeout(() => { if (vapi.current === client) void client.stop().catch(() => {}); }, 8000);
+    }, 250);
     return () => clearInterval(timer);
   }, [active]);
 
@@ -105,6 +122,7 @@ export function useVoiceCall(controller: VoiceLine, api: VoiceApi) {
     setLimitReached(false);
     setPartial(null);
     started.current = 0;
+    pausedMs.current = 0; pausedSince.current = null; ending.current = false;
     try {
       // The package is CommonJS: depending on the bundler its class is the default export or one level under it.
       const loaded = (await import("@vapi-ai/web")) as unknown as { default: typeof Vapi | { default: typeof Vapi } };
@@ -151,7 +169,8 @@ export function useVoiceCall(controller: VoiceLine, api: VoiceApi) {
         setPaused(false);
         setPartial(null);
         setSeconds(callSeconds);
-        setLimitReached(endedAtLimit(callSeconds));
+        setLimitReached(reached => reached || (endedAtLimit(callSeconds) ? "connected" : false));
+        pausedSince.current = null;
         send({ call: "end", callSeconds });
         client.removeAllListeners();
         vapi.current = null;
@@ -186,14 +205,15 @@ export function useVoiceCall(controller: VoiceLine, api: VoiceApi) {
 
   // Pause keeps the call connected and closes both directions: the microphone is muted and so
   // is the interviewer's voice. The interviewer is told through a system message, and on resume
-  // is asked to welcome the candidate back. Vapi has no pause of its own, so the call's minutes
-  // keep running.
+  // is asked to welcome the candidate back. The call's clock stops while it is paused. Vapi has
+  // no pause of its own and bills the paused minutes, so its own ceiling keeps counting.
   const pause = useCallback(() => {
     const client = vapi.current;
     if (!client) return;
     const next = !paused;
     try {
       if (next) {
+        pausedSince.current = Date.now();
         client.send({ type: "add-message", triggerResponseEnabled: false, message: { role: "system",
           content: "[Onboarded] The candidate paused the call. They cannot hear you and you cannot hear them until they resume. Say nothing." } });
         client.send({ type: "control", control: "mute-assistant" });
@@ -201,6 +221,8 @@ export function useVoiceCall(controller: VoiceLine, api: VoiceApi) {
         setSpeaking(false);
         setPartial(null);
       } else {
+        if (pausedSince.current !== null) pausedMs.current += Date.now() - pausedSince.current;
+        pausedSince.current = null;
         client.send({ type: "control", control: "unmute-assistant" });
         client.setMuted(muted);
         // Sent as the candidate's turn: a system message at the end of the conversation did not
