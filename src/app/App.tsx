@@ -62,13 +62,17 @@ function Guard({ step, children }: { step: number; children: ReactNode }) {
   if (builder && step >= 5 && !builder.built) return <Navigate to="/name" replace />;
   return children;
 }
+function CompanyRoute() {
+  const { token } = useBuilder();
+  return <Company key={token ?? "new"} />;
+}
 function RouteEffects() {
   const { pathname } = useLocation();
   useEffect(() => { window.scrollTo(0, 0); document.title = "Build a compliant agent"; }, [pathname]);
   return null;
 }
 function BuilderApp() {
-  return <BrowserRouter><BuilderProvider><RouteEffects /><Routes><Route path="/" element={<Guard step={1}><Company /></Guard>} /><Route path="/check-email" element={<Guard step={2}><CheckEmail /></Guard>} /><Route path="/verify" element={<Verify />} /><Route path="/questions" element={<Guard step={3}><Questions /></Guard>} /><Route path="/name" element={<Guard step={4}><Name /></Guard>} /><Route path="/built" element={<Guard step={5}><Built /></Guard>} /><Route path="/call" element={<Guard step={5}><Call /></Guard>} /><Route path="/i/:token" element={<CandidateCall />} /><Route path="*" element={<Navigate to="/" replace />} /></Routes></BuilderProvider></BrowserRouter>;
+  return <BrowserRouter><BuilderProvider><RouteEffects /><Routes><Route path="/" element={<Guard step={1}><CompanyRoute /></Guard>} /><Route path="/check-email" element={<Guard step={2}><CheckEmail /></Guard>} /><Route path="/verify" element={<Verify />} /><Route path="/questions" element={<Guard step={3}><Questions /></Guard>} /><Route path="/name" element={<Guard step={4}><Name /></Guard>} /><Route path="/built" element={<Guard step={5}><Built /></Guard>} /><Route path="/call" element={<Guard step={5}><Call /></Guard>} /><Route path="/i/:token" element={<CandidateCall />} /><Route path="*" element={<Navigate to="/" replace />} /></Routes></BuilderProvider></BrowserRouter>;
 }
 export default function App() {
   return <AccessGate><BuilderApp /></AccessGate>;
