@@ -455,6 +455,21 @@ export const weekdayOf = (iso: string): string => WEEKDAYS[parseDay(iso).getUTCD
 export const formatClock = (seconds: number): string =>
   `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
 
+/**
+ * A test call ends itself after this long. Paused time counts: a paused call is still
+ * connected, and Vapi bills every connected minute.
+ */
+export const MAX_CALL_SECONDS = 20 * 60;
+/** How close to the limit the clock starts counting down. */
+const LAST_SECONDS = 120;
+/** The call's clock: time on the call, then the time left once two minutes remain. */
+export const callClock = (seconds: number): string => {
+  const left = Math.max(0, MAX_CALL_SECONDS - seconds);
+  return left <= LAST_SECONDS ? `${formatClock(left)} left` : formatClock(seconds);
+};
+/** Whether a call that ended after this long was ended by the limit (Vapi cuts it within a second or two of it). */
+export const endedAtLimit = (seconds: number): boolean => seconds >= MAX_CALL_SECONDS - 5;
+
 /** The live score: criteria scored so far over all of them, so it climbs as they tick. */
 export const scoreOf = (criteria: ReadonlyArray<Criterion>): number =>
   criteria.length === 0

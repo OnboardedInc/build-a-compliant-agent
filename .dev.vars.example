@@ -47,6 +47,10 @@ DEV_SHOW_VERIFY_LINK=1
 # The site's own hostnames, comma-separated. Never localhost on a deployed Worker.
 # TURNSTILE_HOSTNAMES=example.com
 
+# A Slack incoming webhook. With it set, each agent a visitor finishes building is posted to that
+# channel: who built it, the company, the agent's name and face, and the two questions.
+# SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
+
 # EMAIL_FROM and SITE_NAME are plain vars in wrangler.jsonc. A line here overrides them locally.
 # EMAIL_FROM=hello@example.com
 # SITE_NAME=example.com

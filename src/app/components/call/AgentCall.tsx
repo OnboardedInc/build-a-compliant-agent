@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronsDownIcon, ChevronsUpIcon, Loader2, MicIcon, MicOffIcon, PauseIcon, PhoneOffIcon, PlayIcon } from "lucide-react";
-import { formatClock, localToday, type CandidateInterview, type InterviewEvents, type JourneyStage, type VoiceJoin } from "@shared/interview";
+import { MAX_CALL_SECONDS, callClock, localToday, type CandidateInterview, type InterviewEvents, type JourneyStage, type VoiceJoin } from "@shared/interview";
 import { useVoiceCall, type VoiceApi, type VoiceCall, type VoiceLine } from "./useVoiceCall";
 import { errorMessage } from "./useSession";
 import { AgentFace } from "../AgentFace";
@@ -115,7 +115,7 @@ export function AgentCall({ token, initial, onBusyChange }: { token: string; ini
   // Vapi reports the room closing as an error when Ava ends the call herself: once the call is
   // over that is not something to show the candidate.
   const callError = voice.active || voice.connecting || info.state === "ready" ? voice.error : null;
-  const error = notice ?? callError ?? voice.settingsError;
+  const error = notice ?? callError ?? voice.settingsError ?? (voice.limitReached ? `This test call reached its ${MAX_CALL_SECONDS / 60}-minute limit and ended.${info.formApp && !info.formApp.allSet ? " You can still finish the forms here." : ""}` : null);
   const finished = !voice.active && !voice.connecting && (info.state === "done" || info.state === "offer");
   const done = () => { if (voice.active) voice.stop(); setClosed(true); };
   // The caption has a fixed height, so the form under it never moves: keep its newest words in view.
@@ -140,7 +140,7 @@ export function AgentCall({ token, initial, onBusyChange }: { token: string; ini
           {face()}<h1>{closed ? `You're all set${info.candidateFirst ? `, ${info.candidateFirst}` : ""}.` : `Thanks${info.candidateFirst ? `, ${info.candidateFirst}` : ""}.`}</h1>
           <p>{closed ? `${info.employer} will confirm your start. You can close this page.` : `That's the interview. The team at ${info.employer} is reviewing it and will get back to you. You can close this page.`}</p>
         </div> : info.formApp ? <>
-          <div className="a2-compact-bar">{face(40)}<div className="a2-compact-name"><b>{info.agentName}</b><span>{voice.active ? <>{voice.paused ? "Paused" : voice.speaking ? "Talking" : "On call"} · <time>{formatClock(voice.seconds)}</time></> : `${info.agentName} has left the call`}</span></div>
+          <div className="a2-compact-bar">{face(40)}<div className="a2-compact-name"><b>{info.agentName}</b><span>{voice.active ? <>{voice.paused ? "Paused" : voice.speaking ? "Talking" : "On call"} · <time>{callClock(voice.seconds)}</time></> : `${info.agentName} has left the call`}</span></div>
             {voice.active && <><Wave compact speaking={voice.speaking && !voice.paused} /><CallButtons compact voice={voice} /></>}
           </div>
           {!wide && <JourneyBar stage="forms" compact />}
@@ -155,7 +155,7 @@ export function AgentCall({ token, initial, onBusyChange }: { token: string; ini
         </> : voice.active ? <>
           <div className="a2-call-heading"><div><span>{info.employer}</span><b>{info.jobTitle}</b></div><span className={`a2-live ${voice.paused ? "paused" : ""}`}>{voice.paused ? "Paused" : <><i />Live</>}</span></div>
           <JourneyBar stage={info.stage} />
-          <div className="a2-screening"><div className="a2-identity">{face()}<h1>{info.agentName}</h1><p>AI interviewer for {info.employer}</p><time>{formatClock(voice.seconds)}</time></div>
+          <div className="a2-screening"><div className="a2-identity">{face()}<h1>{info.agentName}</h1><p>AI interviewer for {info.employer}</p><time>{callClock(voice.seconds)}</time></div>
             <Wave speaking={voice.speaking && !voice.paused} />
             <div className="a2-caption a2-screen-caption" ref={screenWords} aria-live="polite">{voice.paused ? <div><b>Paused</b><p>{PAUSED}</p></div> : <>{candidate && <div className="a2-you"><b>You</b><p>{candidate}</p></div>}<div><b>{info.agentName}{info.stage === "screen" && ` · question ${info.questionNow} of ${info.questionCount}`}</b><p>{ava || `Connected. ${info.agentName} will speak first.`}</p></div></>}</div>
           </div>

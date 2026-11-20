@@ -1,4 +1,6 @@
 import { notHuman } from "../services/turnstile";
+import { announceBuiltAgent } from "../services/notify";
+import { MAX_AGENTS_PER_ADDRESS, MAX_REWRITES_PER_DAY, addressKey, countUse, countedAddress } from "../services/limits";
 import { Hono, type MiddlewareHandler } from "hono";
 import { nanoid } from "nanoid";
 import type { AppContext, AppEnv } from "../index";
@@ -88,6 +90,10 @@ builders.post("/builders", async (c) => {
     const recent = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM builders WHERE email = ? AND created_at > ?").bind(email, new Date(Date.now() - 86_400_000).toISOString()).first<{ n: number }>();
     if ((recent?.n ?? 0) >= MAX_STARTS_PER_EMAIL) return c.json({ error: noMail ? "That address has started three agents today. Try again tomorrow." : "A link was already sent to this address today. Open it, or try again tomorrow." }, 429);
   }
+  // The email is not checked, so a new address each time would get past the limit above: the
+  // visitor's internet address is counted too. Local development has none to count.
+  const address = countedAddress(c.req.header("CF-Connecting-IP"));
+  if (!internal && address && !(await countUse(c.env.DB, await addressKey(c.env, address), MAX_AGENTS_PER_ADDRESS))) return c.json({ error: "A lot of agents have been started from your network today. Try again tomorrow." }, 429);
   const at = now();
   const id = `bld_${nanoid(12)}`;
   const token = nanoid(32);
@@ -128,6 +134,8 @@ builders.post("/me/questions", confirmed, async (c) => {
   const body = await c.req.json<{ description?: unknown }>();
   const description = value(body?.description);
   if (description.length < 20 || description.length > 1500) return problem(c, [{ field: "description", message: "Describe the role in 20 to 1500 characters." }]);
+  // Every rewrite is a model request, whether or not it comes back usable.
+  if (!(await countUse(c.env.DB, `questions:${builderOf(c).id}`, MAX_REWRITES_PER_DAY))) return c.json({ error: "That is ten rewrites today. Edit a question by hand, or try again tomorrow." }, 429);
   try {
     const { questions, jobTitle } = await writeQuestions(c.env.VAPI_PRIVATE_KEY, description);
     await c.env.DB.prepare("UPDATE builders SET description = ?, job_title = ?, questions = ?, updated_at = ? WHERE id = ?").bind(description, jobTitle, JSON.stringify(questions), now(), builderOf(c).id).run();
@@ -176,5 +184,17 @@ builders.post("/me/build", confirmed, async (c) => {
   if (!row.agent_face) errors.push({ field: "agentFace", message: "Choose your agent's face first." });
   if (errors.length) return problem(c, errors);
   await c.env.DB.prepare("UPDATE builders SET built_at = ?, updated_at = ? WHERE id = ?").bind(now(), now(), row.id).run();
-  return c.json(await view(c, (await read(c, row.id))!));
+  const saved = (await read(c, row.id))!;
+  // The first time an agent is built, the team's Slack channel is told who built what.
+  if (!row.built_at) c.executionCtx.waitUntil((async () => {
+    // Only the redesigned flow asks for a name and job title; an older database has no such table.
+    const contact = await c.env.DB.prepare("SELECT name, title FROM builder_contacts WHERE builder_id = ?").bind(saved.id).first<{ name: string; title: string }>().catch(() => null);
+    const brand = JSON.parse(saved.brand) as Partial<Brand>;
+    await announceBuiltAgent(c.env, {
+      email: saved.email, contactName: contact?.name, contactTitle: contact?.title, company: saved.company, website: saved.website,
+      primary: brand.primary, secondary: brand.secondary, agentName: saved.agent_name, agentFace: saved.agent_face,
+      jobTitle: saved.job_title, description: saved.description, questions: questionsOf(saved).map(question => question.question),
+    });
+  })());
+  return c.json(await view(c, saved));
 });

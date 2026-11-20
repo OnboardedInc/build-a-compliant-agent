@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type Vapi from "@vapi-ai/web";
 import type { InterviewEvents, InterviewMode, InterviewStatus, TranscriptLine, VoiceJoin, VoiceSettings } from "@shared/interview";
+import { endedAtLimit } from "@shared/interview";
 import { errorMessage } from "./useSession";
 
 /** What a call needs from its session: the studio's controller, or the candidate's own page. */
@@ -41,6 +42,8 @@ export function useVoiceCall(controller: VoiceLine, api: VoiceApi) {
   const [speaking, setSpeaking] = useState(false);
   const [muted, setMuted] = useState(false);
   const [paused, setPaused] = useState(false);
+  /** The last call was ended by the call length limit, not by anyone on it. */
+  const [limitReached, setLimitReached] = useState(false);
   const [partial, setPartial] = useState<TranscriptLine | null>(null);
   const [seconds, setSeconds] = useState(session.callSeconds);
   const vapi = useRef<Vapi | null>(null);
@@ -99,6 +102,7 @@ export function useVoiceCall(controller: VoiceLine, api: VoiceApi) {
     setError(null);
     setMuted(false);
     setPaused(false);
+    setLimitReached(false);
     setPartial(null);
     started.current = 0;
     try {
@@ -147,6 +151,7 @@ export function useVoiceCall(controller: VoiceLine, api: VoiceApi) {
         setPaused(false);
         setPartial(null);
         setSeconds(callSeconds);
+        setLimitReached(endedAtLimit(callSeconds));
         send({ call: "end", callSeconds });
         client.removeAllListeners();
         vapi.current = null;
@@ -216,7 +221,7 @@ export function useVoiceCall(controller: VoiceLine, api: VoiceApi) {
     }
   }, [paused, muted, report]);
 
-  return { settings, settingsError, error, connecting, active, speaking, muted, paused, partial,
+  return { settings, settingsError, error, connecting, active, speaking, muted, paused, limitReached, partial,
     seconds: active ? seconds : session.callSeconds, start, mute, pause, stop };
 }
 

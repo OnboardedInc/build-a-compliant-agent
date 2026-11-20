@@ -30,6 +30,8 @@ export interface Bindings {
   TURNSTILE_SITE_KEY?: string;
   /** The site's own hostnames, comma-separated. A token made on any other page is refused. */
   TURNSTILE_HOSTNAMES?: string;
+  /** A Slack incoming webhook. With it set, each agent a visitor finishes building is posted to that channel. */
+  SLACK_WEBHOOK_URL?: string;
   SESSION_SECRET?: string;
   DEV_SHOW_VERIFY_LINK?: string;
   /** "1" sends the employer's I-9 Section 2 link to the browser. Off by default. */
@@ -47,7 +49,7 @@ app.use("/api/*", async (c, next) => {
   c.header("Referrer-Policy", "no-referrer");
   await next();
   if (c.res.headers.get("Content-Type")?.includes("application/json")) {
-    const secrets = [c.env.ONBOARDED_API_KEY, c.env.VAPI_PRIVATE_KEY, c.env.ADMIN_TOKEN, c.env.BRAND_DEV_API_KEY, c.env.SESSION_SECRET, c.env.TURNSTILE_SECRET, getCookie(c, SESSION_COOKIE), c.res.headers.get("Set-Cookie")?.match(/^__Host-bca_auth=([^;]+)/)?.[1], c.get("builder")?.token, c.req.header("x-bca-tool-secret"), ...(c.req.path.startsWith("/api/mcp/") ? [c.req.header("Authorization")?.replace(/^Bearer\s+/i, "")] : [])];
+    const secrets = [c.env.ONBOARDED_API_KEY, c.env.VAPI_PRIVATE_KEY, c.env.ADMIN_TOKEN, c.env.BRAND_DEV_API_KEY, c.env.SESSION_SECRET, c.env.TURNSTILE_SECRET, c.env.SLACK_WEBHOOK_URL, getCookie(c, SESSION_COOKIE), c.res.headers.get("Set-Cookie")?.match(/^__Host-bca_auth=([^;]+)/)?.[1], c.get("builder")?.token, c.req.header("x-bca-tool-secret"), ...(c.req.path.startsWith("/api/mcp/") ? [c.req.header("Authorization")?.replace(/^Bearer\s+/i, "")] : [])];
     const data: unknown = await c.res.clone().json();
     c.res = new Response(JSON.stringify(redactData(data, secrets)), { status: c.res.status, headers: c.res.headers });
   }
