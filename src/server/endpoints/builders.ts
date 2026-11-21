@@ -1,7 +1,7 @@
 import { notHuman } from "../services/turnstile";
 import { personalEmailProblem } from "../services/emailDomains";
 import { announceBuiltAgent } from "../services/notify";
-import { MAX_AGENTS_PER_ADDRESS, MAX_REWRITES_PER_DAY, addressKey, countUse, countedAddress } from "../services/limits";
+import { DAY_MS, MAX_AGENTS_PER_ADDRESS, MAX_REWRITES_PER_DAY, MAX_STARTS_PER_EMAIL, addressKey, countUse, countedAddress, tooManyAgents } from "../services/limits";
 import { Hono, type MiddlewareHandler } from "hono";
 import { nanoid } from "nanoid";
 import type { AppContext, AppEnv } from "../index";
@@ -55,9 +55,6 @@ async function view(c: AppContext, row: BuilderRow): Promise<BuilderView> {
     ...(c.env.DEV_SHOW_VERIFY_LINK === "1" && row.verify_token && /^(localhost|127\.0\.0\.1|\[::1\])$/.test(new URL(c.req.url).hostname) ? { devVerifyUrl: await verificationUrl(c, row) } : {}),
   };
 }
-/** How many agents one email address can start in a day. */
-const MAX_STARTS_PER_EMAIL = 3;
-
 /**
  * Topics a screening question must not ask about. The model that writes the questions is told
  * the same; this catches a question the visitor edits by hand. It is a word list, not a legal
@@ -88,8 +85,8 @@ builders.post("/builders", async (c) => {
   if (refused) return refused;
   // The public flow limits emails sent; the internal flow sends no verification mail.
   if (!internal) {
-    const recent = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM builders WHERE email = ? AND created_at > ?").bind(email, new Date(Date.now() - 86_400_000).toISOString()).first<{ n: number }>();
-    if ((recent?.n ?? 0) >= MAX_STARTS_PER_EMAIL) return c.json({ error: noMail ? "That address has started three agents today. Try again tomorrow." : "A link was already sent to this address today. Open it, or try again tomorrow." }, 429);
+    const recent = await c.env.DB.prepare("SELECT COUNT(*) AS n, MIN(created_at) AS oldest FROM builders WHERE email = ? AND created_at > ?").bind(email, new Date(Date.now() - DAY_MS).toISOString()).first<{ n: number; oldest: string | null }>();
+    if ((recent?.n ?? 0) >= MAX_STARTS_PER_EMAIL) return c.json({ error: tooManyAgents(recent?.oldest) }, 429);
   }
   // The email is not checked, so a new address each time would get past the limit above: the
   // visitor's internet address is counted too. Local development has none to count.

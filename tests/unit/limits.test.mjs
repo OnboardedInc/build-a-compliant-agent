@@ -1,10 +1,24 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { addressKey, countUse, countedAddress, MAX_AGENTS_PER_ADDRESS, MAX_REWRITES_PER_DAY } from "../../src/server/services/limits.ts";
+import { addressKey, countUse, countedAddress, tooManyAgents, MAX_AGENTS_PER_ADDRESS, MAX_REWRITES_PER_DAY, MAX_STARTS_PER_EMAIL } from "../../src/server/services/limits.ts";
 
 test("the limits Sam set", () => {
   assert.equal(MAX_REWRITES_PER_DAY, 10);
   assert.equal(MAX_AGENTS_PER_ADDRESS, 10);
+  assert.equal(MAX_STARTS_PER_EMAIL, 10);
+});
+
+test("a visitor over the email limit is told the limit and when the next agent is free", () => {
+  const now = Date.parse("2026-11-21T12:00:00.000Z");
+  const said = "You've created 10 agents with this email in the last 24 hours, which is the limit.";
+  // The oldest start of the last 24 hours frees a place 24 hours after it was made.
+  assert.equal(tooManyAgents("2026-11-20T17:11:00.000Z", now), `${said} You can create another one in about 6 hours.`);
+  assert.equal(tooManyAgents("2026-11-20T13:00:00.000Z", now), `${said} You can create another one in about 1 hour.`);
+  assert.equal(tooManyAgents("2026-11-20T12:25:00.000Z", now), `${said} You can create another one in about 25 minutes.`);
+  assert.equal(tooManyAgents("2026-11-20T12:00:30.000Z", now), `${said} You can create another one in a minute.`);
+  assert.equal(tooManyAgents("2026-11-20T11:00:00.000Z", now), `${said} You can create another one in a minute.`);
+  assert.equal(tooManyAgents(null, now), `${said} You can create another one tomorrow.`);
+  assert.equal(tooManyAgents("not a date", now), `${said} You can create another one tomorrow.`);
 });
 
 test("an address is counted under a salted hash, never itself", async () => {

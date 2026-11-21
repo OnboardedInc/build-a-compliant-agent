@@ -88,7 +88,7 @@ The agent's design came from testing real calls. Keep these when changing the pr
 Each of these stops a stranger on the public site from spending the shared Vapi and Onboarded accounts or reaching another visitor's data. Keep them when changing the routes.
 
 - **One call start per session.** `startCandidateCall` claims `$.claimedAt` with a conditional `UPDATE` before it asks Vapi for a call. A second start gets 409. The claim is released if Vapi fails and can be taken again after 90 s.
-- **12 sessions per builder per day** (`MAX_SESSIONS_PER_DAY`) and **3 one-time links per email address per 24 h** (`MAX_STARTS_PER_EMAIL`, 429 after that).
+- **12 sessions per builder per day** (`MAX_SESSIONS_PER_DAY`) and **10 agents per email address in any 24 hours** (`MAX_STARTS_PER_EMAIL` in `services/limits.ts`; every "New agent" is a start and sends one link; the 429 says when the next one is free, `tooManyAgents`). It was 3 until 2026-11-21, when a tester was locked out after three tries.
 - **Approve is only for a call that ended without a hire.** It needs a status other than idle and `offer.state` of `review` or `offered`; anything else gets 409.
 - **The start date is the server's.** `today` from the browser is clamped to the server's day, plus or minus one.
 - **The email carries no visitor text.** The company name is not in the subject or the body, so the form cannot be used to send someone else's words from the site's domain. Email addresses are at most 254 characters.

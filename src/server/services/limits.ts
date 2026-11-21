@@ -5,6 +5,25 @@ export const MAX_REWRITES_PER_DAY = 10;
 /** Agents one internet address can start in a day, whichever email is typed. An office shares one address. */
 export const MAX_AGENTS_PER_ADDRESS = 10;
 
+/** Agents one email address can start in any 24 hours. Every "New agent" is a start, and every start sends one confirmation link. */
+export const MAX_STARTS_PER_EMAIL = 10;
+export const DAY_MS = 86_400_000;
+
+/**
+ * What a visitor over the email limit is told: the limit, and how long until the oldest start
+ * of the last 24 hours ages out and makes room. The wait is rounded up, so it never promises
+ * a time that is too early.
+ */
+export function tooManyAgents(oldestStart: string | null | undefined, nowMs: number = Date.now()): string {
+  const said = `You've created ${MAX_STARTS_PER_EMAIL} agents with this email in the last 24 hours, which is the limit.`;
+  const minutes = oldestStart ? Math.ceil((Date.parse(oldestStart) + DAY_MS - nowMs) / 60_000) : NaN;
+  if (!Number.isFinite(minutes)) return `${said} You can create another one tomorrow.`;
+  if (minutes <= 1) return `${said} You can create another one in a minute.`;
+  if (minutes < 60) return `${said} You can create another one in about ${minutes} minutes.`;
+  const hours = Math.ceil(minutes / 60);
+  return `${said} You can create another one in about ${hours} ${hours === 1 ? "hour" : "hours"}.`;
+}
+
 const today = (): string => new Date().toISOString().slice(0, 10);
 
 /**
