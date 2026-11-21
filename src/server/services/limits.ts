@@ -8,6 +8,8 @@ export const MAX_AGENTS_PER_ADDRESS = 10;
 /** Agents one email address can start in any 24 hours. Every "New agent" is a start, and every start sends one confirmation link. */
 export const MAX_STARTS_PER_EMAIL = 10;
 export const DAY_MS = 86_400_000;
+/** Test calls one agent can start in any 24 hours. Each one is a voice call and an employee in the shared Onboarded account. */
+export const MAX_SESSIONS_PER_DAY = 15;
 
 /**
  * What a visitor over the email limit is told: the limit, and how long until the oldest start

@@ -11,6 +11,7 @@
 //   api_log     every call to Onboarded and Vapi, appended as they happen
 
 import type { AppContext as Context } from "../index";
+import { DAY_MS, MAX_SESSIONS_PER_DAY } from "../services/limits";
 import type { Brand, ScreeningQuestion } from "../../shared/builder";
 import { builderOf } from "./builders";
 import { secretMatches, redactData, publicUrl } from "../services/security";
@@ -335,10 +336,6 @@ const vapiCall = (
 
 // -- Create ----------------------------------------------------------------------------------
 
-/** How many sessions one builder can make in 24 hours. */
-/** Test calls one agent can start in a day. Each one is a voice call and an employee in the shared Onboarded account. */
-const MAX_SESSIONS_PER_DAY = 10;
-
 /** Creates the Onboarded employee directly; the session is a frozen copy of the builder. */
 export async function createInterview(c: Context) {
   const builder = builderOf(c);
@@ -351,7 +348,7 @@ export async function createInterview(c: Context) {
   const near = (day: string): boolean => Math.abs(Date.parse(`${day}T00:00:00Z`) - Date.parse(`${serverDay}T00:00:00Z`)) <= 86_400_000;
   const today = validDay(body?.today) && near(body.today as string) ? (body.today as string) : serverDay;
   // Each session creates an employee in the one Onboarded account every visitor shares.
-  const made = await db(c).prepare("SELECT COUNT(*) AS n FROM interview_sessions WHERE builder_id = ? AND created_at > ?").bind(builder.id, new Date(Date.now() - 86_400_000).toISOString()).first<{ n: number }>();
+  const made = await db(c).prepare("SELECT COUNT(*) AS n FROM interview_sessions WHERE builder_id = ? AND created_at > ?").bind(builder.id, new Date(Date.now() - DAY_MS).toISOString()).first<{ n: number }>();
   if ((made?.n ?? 0) >= MAX_SESSIONS_PER_DAY) return c.json({ error: "That is a lot of test calls for one day. Try again tomorrow." }, 429);
   const config = getConfig(c.env);
   if (!config) return c.json({ error: "Onboarded is not configured." }, 502);

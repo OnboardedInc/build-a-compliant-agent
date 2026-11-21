@@ -1,11 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { addressKey, countUse, countedAddress, tooManyAgents, MAX_AGENTS_PER_ADDRESS, MAX_REWRITES_PER_DAY, MAX_STARTS_PER_EMAIL } from "../../src/server/services/limits.ts";
+import { addressKey, countUse, countedAddress, tooManyAgents, MAX_AGENTS_PER_ADDRESS, MAX_REWRITES_PER_DAY, MAX_SESSIONS_PER_DAY, MAX_STARTS_PER_EMAIL } from "../../src/server/services/limits.ts";
 
 test("the limits Sam set", () => {
   assert.equal(MAX_REWRITES_PER_DAY, 10);
   assert.equal(MAX_AGENTS_PER_ADDRESS, 10);
   assert.equal(MAX_STARTS_PER_EMAIL, 10);
+  assert.equal(MAX_SESSIONS_PER_DAY, 15);
 });
 
 test("a visitor over the email limit is told the limit and when the next agent is free", () => {
