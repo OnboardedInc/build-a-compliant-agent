@@ -1,7 +1,8 @@
 import { notHuman } from "../services/turnstile";
 import { personalEmailProblem } from "../services/emailDomains";
 import { announceBuiltAgent } from "../services/notify";
-import { DAY_MS, MAX_AGENTS_PER_ADDRESS, MAX_REWRITES_PER_DAY, MAX_STARTS_PER_EMAIL, addressKey, countUse, countedAddress, tooManyAgents } from "../services/limits";
+import { DAY_MS, MAX_REWRITES_PER_DAY, MAX_STARTS_PER_EMAIL, countUse } from "../services/limits";
+import { agentLimitMessage } from "../../shared/limits";
 import { Hono, type MiddlewareHandler } from "hono";
 import { nanoid } from "nanoid";
 import type { AppContext, AppEnv } from "../index";
@@ -86,12 +87,13 @@ builders.post("/builders", async (c) => {
   // The public flow limits emails sent; the internal flow sends no verification mail.
   if (!internal) {
     const recent = await c.env.DB.prepare("SELECT COUNT(*) AS n, MIN(created_at) AS oldest FROM builders WHERE email = ? AND created_at > ?").bind(email, new Date(Date.now() - DAY_MS).toISOString()).first<{ n: number; oldest: string | null }>();
-    if ((recent?.n ?? 0) >= MAX_STARTS_PER_EMAIL) return c.json({ error: tooManyAgents(recent?.oldest) }, 429);
+    if ((recent?.n ?? 0) >= MAX_STARTS_PER_EMAIL) {
+      // The next agent is free when the oldest start of the last 24 hours is 24 hours old. The page shows that time on the visitor's own clock.
+      const oldest = recent?.oldest ? Date.parse(recent.oldest) : NaN;
+      const retryAt = Number.isFinite(oldest) ? new Date(oldest + DAY_MS).toISOString() : null;
+      return c.json({ error: agentLimitMessage(retryAt, { timeZone: "UTC" }), limit: "agents", retryAt }, 429);
+    }
   }
-  // The email is not checked, so a new address each time would get past the limit above: the
-  // visitor's internet address is counted too. Local development has none to count.
-  const address = countedAddress(c.req.header("CF-Connecting-IP"));
-  if (!internal && address && !(await countUse(c.env.DB, await addressKey(c.env, address), MAX_AGENTS_PER_ADDRESS))) return c.json({ error: "A lot of agents have been started from your network today. Try again tomorrow." }, 429);
   const at = now();
   const id = `bld_${nanoid(12)}`;
   const token = nanoid(32);

@@ -63,6 +63,9 @@ export interface FieldError {
 export interface ApiProblem {
   error: string;
   errors?: FieldError[];
+  /** Set on the 429 for the email limit, with the time the next agent is free. */
+  limit?: "agents";
+  retryAt?: string | null;
 }
 
 export interface StartRequest {

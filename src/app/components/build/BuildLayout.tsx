@@ -22,8 +22,13 @@ export function StartOver({ label, className, disabled }: { label: string; class
   }, [armed]);
   return <button type="button" className={className} disabled={disabled} aria-live="polite" onClick={() => { if (!armed) { setArmed(true); return; } forget(); navigate("/"); }}>{armed ? "Press again to start over" : label}</button>;
 }
-export function StepFooter({ back, start, label = "Continue", busy, disabled, onNext, form }: { back?: string; start?: ReactNode; label?: string; busy?: boolean; disabled?: boolean; onNext?: () => void; form?: string }) {
-  return <footer className="step-footer">{back ? <Link className="back-button" to={back}><ArrowLeft size={16} />Back</Link> : start ?? <span />}<button className="primary-button" type={form ? "submit" : "button"} form={form} onClick={onNext} disabled={disabled || busy} aria-busy={busy}>{busy ? <Loader2 size={16} className="animate-spin" /> : null}{busy ? "Please wait…" : label}<ArrowRight size={16} /></button></footer>;
+/**
+ * The Back and Continue bar. A step's general error is shown inside it, above the buttons: on a
+ * phone the bar is fixed to the bottom of the screen, and an error further down the page than the
+ * screen shows was never seen (a visitor pressed Continue and nothing appeared to happen).
+ */
+export function StepFooter({ back, start, label = "Continue", busy, disabled, onNext, form, error }: { back?: string; start?: ReactNode; label?: string; busy?: boolean; disabled?: boolean; onNext?: () => void; form?: string; error?: ReactNode }) {
+  return <footer className="step-footer">{error ? <p role="alert" className="field-error step-error">{error}</p> : null}<div className="step-actions">{back ? <Link className="back-button" to={back}><ArrowLeft size={16} />Back</Link> : start ?? <span />}<button className="primary-button" type={form ? "submit" : "button"} form={form} onClick={onNext} disabled={disabled || busy} aria-busy={busy}>{busy ? <Loader2 size={16} className="animate-spin" /> : null}{busy ? "Please wait…" : label}<ArrowRight size={16} /></button></div></footer>;
 }
 export function BuildLayout({ step, children, panel, footer }: { step: number; children: ReactNode; panel: ReactNode; footer: ReactNode }) {
   const { builder } = useBuilder();

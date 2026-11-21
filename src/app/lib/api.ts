@@ -1,6 +1,7 @@
 import type { ApiProblem, FieldError } from "@shared/builder";
 import type { AccessState } from "@shared/access";
 import { withBase } from "@shared/base-path";
+import { agentLimitMessage } from "@shared/limits";
 export type { AccessState } from "@shared/access";
 
 export const TOKEN_KEY = "bca_token";
@@ -34,7 +35,9 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
       window.dispatchEvent(new CustomEvent("bca-sign-in-required"));
       throw new SignInRequiredError(problem.error ?? "Sign in with your Google work account.");
     }
-    throw new ApiError(response.status, problem?.error ?? `Something went wrong (${response.status}). Please try again.`, problem?.errors);
+    // The email limit names the time the next agent is free: said on this visitor's clock, not the server's.
+    const message = response.status === 429 && problem?.limit === "agents" ? agentLimitMessage(problem.retryAt) : problem?.error;
+    throw new ApiError(response.status, message ?? `Something went wrong (${response.status}). Please try again.`, problem?.errors);
   }
   return response.json() as Promise<T>;
 }
